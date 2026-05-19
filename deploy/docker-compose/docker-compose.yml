@@ -1,0 +1,388 @@
+services:
+  auth-db:
+    image: postgres:16-alpine
+    container_name: devsecops-auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+      - ../../apps/auth-service/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  auth-service:
+    build:
+      context: ../../apps/auth-service
+      dockerfile: Dockerfile
+    image: devsecops-shop/auth-service:dev
+    container_name: devsecops-auth-service
+    environment:
+      NODE_ENV: production
+      PORT: 4002
+      DATABASE_URL: postgresql://auth_user:auth_password@auth-db:5432/auth_db
+      JWT_SECRET: devsecops-shop-local-secret
+      ACCESS_TOKEN_EXPIRES_SECONDS: 900
+      REFRESH_TOKEN_EXPIRES_DAYS: 7
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5173/auth/google/callback}
+    ports:
+      - "4002:4002"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4002/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  user-db:
+    image: postgres:16-alpine
+    container_name: devsecops-user-db
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+      - ../../apps/user-service/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_user -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  user-service:
+    build:
+      context: ../../apps/user-service
+      dockerfile: Dockerfile
+    image: devsecops-shop/user-service:dev
+    container_name: devsecops-user-service
+    environment:
+      NODE_ENV: production
+      PORT: 4003
+      DATABASE_URL: postgresql://user_user:user_password@user-db:5432/user_db
+      JWT_SECRET: devsecops-shop-local-secret
+    ports:
+      - "4003:4003"
+    depends_on:
+      user-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4003/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  cart-db:
+    image: postgres:16-alpine
+    container_name: devsecops-cart-db
+    environment:
+      POSTGRES_DB: cart_db
+      POSTGRES_USER: cart_user
+      POSTGRES_PASSWORD: cart_password
+    ports:
+      - "5436:5432"
+    volumes:
+      - cart-db-data:/var/lib/postgresql/data
+      - ../../apps/cart-service/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cart_user -d cart_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  cart-service:
+    build:
+      context: ../../apps/cart-service
+      dockerfile: Dockerfile
+    image: devsecops-shop/cart-service:dev
+    container_name: devsecops-cart-service
+    environment:
+      NODE_ENV: production
+      PORT: 4004
+      DATABASE_URL: postgresql://cart_user:cart_password@cart-db:5432/cart_db
+      JWT_SECRET: devsecops-shop-local-secret
+    ports:
+      - "4004:4004"
+    depends_on:
+      cart-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4004/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  order-db:
+    image: postgres:16-alpine
+    container_name: devsecops-order-db
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_password
+    ports:
+      - "5437:5432"
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+      - ../../apps/order-service/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  order-service:
+    build:
+      context: ../../apps/order-service
+      dockerfile: Dockerfile
+    image: devsecops-shop/order-service:dev
+    container_name: devsecops-order-service
+    environment:
+      NODE_ENV: production
+      PORT: 4005
+      DATABASE_URL: postgresql://order_user:order_password@order-db:5432/order_db
+      JWT_SECRET: devsecops-shop-local-secret
+      CART_SERVICE_URL: http://cart-service:4004
+      PRODUCT_SERVICE_URL: http://product-service:4001
+      USER_SERVICE_URL: http://user-service:4003
+      PAYMENT_SERVICE_URL: http://payment-service:4006
+      INTERNAL_SERVICE_TOKEN: devsecops-shop-internal-token
+    ports:
+      - "4005:4005"
+    depends_on:
+      order-db:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4005/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: devsecops-payment-db
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_password
+    ports:
+      - "5438:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+      - ../../apps/payment-service/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  payment-service:
+    build:
+      context: ../../apps/payment-service
+      dockerfile: Dockerfile
+    image: devsecops-shop/payment-service:dev
+    container_name: devsecops-payment-service
+    environment:
+      NODE_ENV: production
+      PORT: 4006
+      DATABASE_URL: postgresql://payment_user:payment_password@payment-db:5432/payment_db
+      JWT_SECRET: devsecops-shop-local-secret
+      INTERNAL_SERVICE_TOKEN: devsecops-shop-internal-token
+      ORDER_SERVICE_URL: http://order-service:4005
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_HASH_ALGORITHM: ${VNPAY_HASH_ALGORITHM:-hmac-sha512}
+      VNPAY_PAYMENT_URL: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:5173/payment/vnpay-return}
+      VNPAY_LOCALE: ${VNPAY_LOCALE:-vn}
+      VNPAY_ORDER_TYPE: ${VNPAY_ORDER_TYPE:-other}
+      VIETQR_BANK_ID: ${VIETQR_BANK_ID:-vietcombank}
+      VIETQR_ACCOUNT_NO: ${VIETQR_ACCOUNT_NO:-0000000000}
+      VIETQR_ACCOUNT_NAME: ${VIETQR_ACCOUNT_NAME:-GREENNEST MARKET}
+      VIETQR_TEMPLATE: ${VIETQR_TEMPLATE:-compact2}
+      VIETQR_TRANSFER_PREFIX: ${VIETQR_TRANSFER_PREFIX:-GN}
+    ports:
+      - "4006:4006"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4006/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  product-db:
+    image: postgres:16-alpine
+    container_name: devsecops-product-db
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: product_user
+      POSTGRES_PASSWORD: product_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+      - ../../apps/product-service/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product_user -d product_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  product-service:
+    build:
+      context: ../../apps/product-service
+      dockerfile: Dockerfile
+    image: devsecops-shop/product-service:dev
+    container_name: devsecops-product-service
+    environment:
+      NODE_ENV: production
+      PORT: 4001
+      DATABASE_URL: postgresql://product_user:product_password@product-db:5432/product_db
+      JWT_SECRET: devsecops-shop-local-secret
+    ports:
+      - "4001:4001"
+    depends_on:
+      product-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+  api-gateway:
+    build:
+      context: ../../apps/api-gateway
+      dockerfile: Dockerfile
+    image: devsecops-shop/api-gateway:dev
+    container_name: devsecops-api-gateway
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      PRODUCT_SERVICE_URL: http://product-service:4001
+      AUTH_SERVICE_URL: http://auth-service:4002
+      USER_SERVICE_URL: http://user-service:4003
+      CART_SERVICE_URL: http://cart-service:4004
+      ORDER_SERVICE_URL: http://order-service:4005
+      PAYMENT_SERVICE_URL: http://payment-service:4006
+    ports:
+      - "4000:4000"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+
+networks:
+  devsecops-shop:
+    name: devsecops-shop
+
+volumes:
+  auth-db-data:
+  user-db-data:
+  cart-db-data:
+  order-db-data:
+  payment-db-data:
+  product-db-data:
