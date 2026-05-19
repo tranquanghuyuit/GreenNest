@@ -21,6 +21,20 @@ type AddressResponse = {
   address: Address;
 };
 
+type FavoriteResponse = {
+  favorite: {
+    productId: string;
+    createdAt: string;
+  };
+};
+
+type FavoritesResponse = {
+  items: Array<{
+    productId: string;
+    createdAt: string;
+  }>;
+};
+
 export type ProfileUpdatePayload = {
   fullName: string;
   phone: string;
@@ -101,6 +115,22 @@ export function updateMyAddress(accessToken: string, addressId: string, payload:
 
 export function deleteMyAddress(accessToken: string, addressId: string) {
   return requestUser<{ success: boolean }>(`/api/users/me/addresses/${encodeURIComponent(addressId)}`, accessToken, {
+    method: "DELETE"
+  });
+}
+
+export function fetchMyFavorites(accessToken: string) {
+  return requestUser<FavoritesResponse>("/api/users/me/favorites", accessToken);
+}
+
+export function addMyFavorite(accessToken: string, productId: string) {
+  return requestUser<FavoriteResponse>(`/api/users/me/favorites/${encodeURIComponent(productId)}`, accessToken, {
+    method: "POST"
+  });
+}
+
+export function deleteMyFavorite(accessToken: string, productId: string) {
+  return requestUser<{ success: boolean }>(`/api/users/me/favorites/${encodeURIComponent(productId)}`, accessToken, {
     method: "DELETE"
   });
 }

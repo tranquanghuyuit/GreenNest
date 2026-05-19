@@ -39,6 +39,12 @@ export type UserAddressRecord = {
   updatedAt: Date;
 };
 
+export type UserFavoriteRecord = {
+  userProfileId: string;
+  productId: string;
+  createdAt: Date;
+};
+
 export type PublicAddress = {
   id: string;
   label: string;
@@ -49,6 +55,11 @@ export type PublicAddress = {
   district: string;
   city: string;
   isDefault: boolean;
+};
+
+export type PublicFavorite = {
+  productId: string;
+  createdAt: string;
 };
 
 export type PublicProfile = {

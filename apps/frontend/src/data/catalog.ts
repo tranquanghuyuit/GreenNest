@@ -1,5 +1,7 @@
 export type Category = {
+  id?: string;
   name: string;
+  slug?: string;
   icon: string;
   count: number;
 };
@@ -8,15 +10,19 @@ export type Product = {
   id: string;
   name: string;
   brand: string;
+  categoryId?: string;
   category: string;
   price: string;
   priceValue: number;
   oldPrice?: string;
   badge: string;
   accent: string;
+  imageUrl?: string;
   unit: string;
   stockQuantity: number;
   description: string;
+  ratingAverage?: number;
+  ratingCount?: number;
 };
 
 export const categories: Category[] = [

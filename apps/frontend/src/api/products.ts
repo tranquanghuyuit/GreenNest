@@ -23,7 +23,10 @@ type ApiProduct = {
   unit: string;
   badge: string;
   accent: string;
+  imageUrl: string;
   status: "active" | "inactive";
+  ratingAverage: number;
+  ratingCount: number;
 };
 
 export type ProductPayload = {
@@ -37,7 +40,36 @@ export type ProductPayload = {
   unit: string;
   badge?: string;
   accent?: string;
+  imageUrl?: string;
   status?: "active" | "inactive";
+};
+
+export type ProductDeal = {
+  id: string;
+  description: string;
+  productIds: string[];
+  discountPercent: number;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductDealPayload = {
+  description: string;
+  productIds: string[];
+  discountPercent: number;
+  status?: "active" | "inactive";
+};
+
+type ProductReviewResponse = {
+  review: {
+    id: string;
+    productId: string;
+    rating: number;
+    comment: string;
+    updatedAt: string;
+  };
+  product: ApiProduct;
 };
 
 type ProductListResponse = {
@@ -46,6 +78,10 @@ type ProductListResponse = {
   limit: number;
   total: number;
   categories: ApiCategory[];
+};
+
+type ProductDealsResponse = {
+  items: ProductDeal[];
 };
 
 export type CatalogProductsResult = {
@@ -76,15 +112,19 @@ function toProduct(apiProduct: ApiProduct): Product {
     id: apiProduct.id,
     name: apiProduct.name,
     brand: apiProduct.brand,
+    categoryId: apiProduct.categoryId,
     category: apiProduct.category,
     price: formatMoney(apiProduct.price),
     priceValue: apiProduct.price,
     oldPrice: apiProduct.oldPrice ? formatMoney(apiProduct.oldPrice) : undefined,
     badge: apiProduct.badge,
     accent: apiProduct.accent,
+    imageUrl: apiProduct.imageUrl,
     unit: apiProduct.unit,
     stockQuantity: apiProduct.stockQuantity,
-    description: apiProduct.description
+    description: apiProduct.description,
+    ratingAverage: apiProduct.ratingAverage,
+    ratingCount: apiProduct.ratingCount
   };
 }
 
@@ -95,7 +135,9 @@ function toCategories(apiCategories: ApiCategory[], mappedProducts: Product[]): 
   }, new Map<string, number>());
 
   return apiCategories.map((category) => ({
+    id: category.id,
     name: category.name,
+    slug: category.slug,
     icon: categoryIconById[category.id] ?? "organic",
     count: counts.get(category.name) ?? 0
   }));
@@ -160,9 +202,62 @@ export function createAdminProduct(accessToken: string, payload: ProductPayload)
   });
 }
 
+export function updateAdminProduct(accessToken: string, productId: string, payload: ProductPayload) {
+  return requestProductAdmin<ApiProduct>(`/api/products/${encodeURIComponent(productId)}`, accessToken, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function updateAdminProductStock(accessToken: string, productId: string, stockQuantity: number) {
   return requestProductAdmin<ApiProduct>(`/api/products/${encodeURIComponent(productId)}/stock`, accessToken, {
     method: "PATCH",
     body: JSON.stringify({ stockQuantity })
   });
+}
+
+export async function fetchProductDeals() {
+  const response = await fetch(`${API_BASE_URL}/api/products/deals`);
+
+  if (!response.ok) {
+    throw new Error("Không tải được danh sách deal.");
+  }
+
+  return (await response.json()) as ProductDealsResponse;
+}
+
+export function createAdminDeal(accessToken: string, payload: ProductDealPayload) {
+  return requestProductAdmin<ProductDeal>("/api/products/deals", accessToken, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteAdminDeal(accessToken: string, dealId: string) {
+  return requestProductAdmin<{ deleted: boolean }>(`/api/products/deals/${encodeURIComponent(dealId)}`, accessToken, {
+    method: "DELETE"
+  });
+}
+
+export async function rateProduct(accessToken: string, productId: string, payload: { rating: number; comment?: string }) {
+  const response = await fetch(`${API_BASE_URL}/api/products/${encodeURIComponent(productId)}/reviews`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("Không lưu được đánh giá sản phẩm.");
+  }
+
+  const data = (await response.json()) as ProductReviewResponse;
+
+  return {
+    review: data.review,
+    product: toProduct(data.product)
+  };
 }

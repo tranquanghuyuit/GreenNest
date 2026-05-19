@@ -2,9 +2,12 @@ import { Router, type Response } from "express";
 import { requireAuth } from "../middleware/require-auth.js";
 import {
   addMyAddress,
+  addMyFavorite,
   deleteMyAddress,
   getMyAddresses,
+  getMyFavorites,
   getMyProfile,
+  removeMyFavorite,
   updateMyAddress,
   updateMyProfile
 } from "../services/user.service.js";
@@ -39,6 +42,33 @@ userRouter.put("/me", async (request, response, next) => {
 userRouter.get("/me/addresses", async (_request, response, next) => {
   try {
     const result = await getMyAddresses(getAuth(response));
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+userRouter.get("/me/favorites", async (_request, response, next) => {
+  try {
+    const result = await getMyFavorites(getAuth(response));
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+userRouter.post("/me/favorites/:productId", async (request, response, next) => {
+  try {
+    const result = await addMyFavorite(getAuth(response), request.params.productId);
+    response.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+userRouter.delete("/me/favorites/:productId", async (request, response, next) => {
+  try {
+    const result = await removeMyFavorite(getAuth(response), request.params.productId);
     response.json(result);
   } catch (error) {
     next(error);

@@ -12,10 +12,22 @@ import {
 import { addMyCartItem, fetchMyCart, removeMyCartItem, updateMyCartItem } from "./api/cart";
 import { fetchPaymentByOrderCode, confirmAdminPayment } from "./api/payments";
 import { createMyOrder, fetchAdminOrders, fetchMyOrders } from "./api/orders";
-import { createAdminCategory, createAdminProduct, updateAdminProductStock, type ProductPayload } from "./api/products";
 import {
+  createAdminCategory,
+  createAdminDeal,
+  createAdminProduct,
+  deleteAdminDeal,
+  rateProduct,
+  updateAdminProduct,
+  type ProductDealPayload,
+  type ProductPayload
+} from "./api/products";
+import {
+  addMyFavorite,
   createMyAddress,
+  deleteMyFavorite,
   deleteMyAddress,
+  fetchMyFavorites,
   fetchMyProfile,
   updateMyAddress,
   updateMyProfile,
@@ -35,6 +47,7 @@ import {
   CartPage,
   CategoriesPage,
   CheckoutPage,
+  FavoritesPage,
   getCartSummary,
   OrderDetailPage,
   OrdersPage,
@@ -49,6 +62,7 @@ const SESSION_STORAGE_KEY = "greennest-auth-session";
 const AUTH_TOKENS_STORAGE_KEY = "greennest-auth-tokens";
 const PROFILE_STORAGE_KEY = "greennest-user-profile";
 const CART_STORAGE_KEY = "greennest-cart";
+const FAVORITES_STORAGE_KEY = "greennest-favorites";
 const ORDERS_STORAGE_KEY = "greennest-orders";
 const GOOGLE_OAUTH_STATE_KEY = "greennest-google-oauth-state";
 
@@ -62,6 +76,8 @@ const routeByPath: Record<string, RouteId> = {
   "/orders/success": "orderSuccess",
   "/payment/vnpay-return": "paymentReturn",
   "/admin": "admin",
+  "/admin/products": "adminProducts",
+  "/favorites": "favorites",
   "/login": "login",
   "/register": "register",
   "/forgot-password": "forgotPassword",
@@ -81,6 +97,8 @@ const pathByRoute: Record<RouteId, string> = {
   orderSuccess: "/orders/success",
   paymentReturn: "/payment/vnpay-return",
   admin: "/admin",
+  adminProducts: "/admin/products",
+  favorites: "/favorites",
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",
@@ -98,7 +116,9 @@ const protectedRoutes = new Set<RouteId>([
   "orders",
   "orderDetail",
   "orderSuccess",
-  "admin"
+  "admin",
+  "adminProducts",
+  "favorites"
 ]);
 
 function normalizePath(pathname: string) {
@@ -310,6 +330,14 @@ async function loadOrdersForSession(accessToken: string) {
   }
 }
 
+async function loadFavoritesForSession(accessToken: string) {
+  try {
+    return (await fetchMyFavorites(accessToken)).items.map((favorite) => favorite.productId);
+  } catch {
+    return readStoredFavorites();
+  }
+}
+
 async function loadPaymentsForOrders(ordersToLoad: Order[]) {
   const entries = await Promise.all(
     ordersToLoad.map(async (order) => {
@@ -351,6 +379,19 @@ function persistOrders(orders: Order[]) {
   localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
 }
 
+function readStoredFavorites() {
+  try {
+    const rawFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    return rawFavorites ? (JSON.parse(rawFavorites) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistFavorites(productIds: string[]) {
+  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(productIds));
+}
+
 function orderBelongsToUser(order: Order, profile: UserProfile) {
   return order.userId === profile.authUserId || order.userId === profile.id;
 }
@@ -382,6 +423,7 @@ function App() {
   const [route, setRoute] = useState<RouteId>(() => getRouteFromLocation());
   const [user, setUser] = useState<UserProfile | null>(() => loadInitialUser());
   const [cartItems, setCartItems] = useState<CartItem[]>(() => readStoredCart());
+  const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>(() => readStoredFavorites());
   const [orders, setOrders] = useState<Order[]>(() => readStoredOrders());
   const [adminOrders, setAdminOrders] = useState<Order[]>([]);
   const [paymentsByOrderCode, setPaymentsByOrderCode] = useState<Record<string, Payment>>({});
@@ -418,10 +460,12 @@ function App() {
         const profile = await loadProfileFromUserService(tokens.accessToken);
         const syncedCart = await loadCartForSession(tokens.accessToken);
         const syncedOrders = await loadOrdersForSession(tokens.accessToken);
+        const syncedFavorites = await loadFavoritesForSession(tokens.accessToken);
         persistUser(profile);
         setUser(profile);
         saveCart(syncedCart);
         saveOrders(syncedOrders);
+        saveFavorites(syncedFavorites);
       } catch {
         try {
           const refreshed = await refreshAuthSession(tokens.refreshToken);
@@ -433,6 +477,7 @@ function App() {
           const profile = await loadProfileFromUserService(refreshed.accessToken);
           const syncedCart = await loadCartForSession(refreshed.accessToken);
           const syncedOrders = await loadOrdersForSession(refreshed.accessToken);
+          const syncedFavorites = await loadFavoritesForSession(refreshed.accessToken);
           persistAuthSession(profile, {
             accessToken: refreshed.accessToken,
             refreshToken: refreshed.refreshToken
@@ -440,6 +485,7 @@ function App() {
           setUser(profile);
           saveCart(syncedCart);
           saveOrders(syncedOrders);
+          saveFavorites(syncedFavorites);
         } catch {
           clearAuthSession();
 
@@ -447,6 +493,7 @@ function App() {
             setUser(null);
             saveCart([]);
             saveOrders([]);
+            setFavoriteProductIds([]);
           }
         }
       }
@@ -480,6 +527,7 @@ function App() {
     const nextUser = await loadProfileFromUserService(result.accessToken);
     const syncedCart = await loadCartForSession(result.accessToken);
     const syncedOrders = await loadOrdersForSession(result.accessToken);
+    const syncedFavorites = await loadFavoritesForSession(result.accessToken);
 
     persistAuthSession(nextUser, {
       accessToken: result.accessToken,
@@ -488,6 +536,7 @@ function App() {
     setUser(nextUser);
     saveCart(syncedCart);
     saveOrders(syncedOrders);
+    saveFavorites(syncedFavorites);
     navigate(pathByRoute[protectedRoutes.has(route) ? route : "profile"]);
   }
 
@@ -507,6 +556,7 @@ function App() {
     const nextUser = userProfile.profile;
     const syncedCart = await loadCartForSession(result.accessToken);
     const syncedOrders = await loadOrdersForSession(result.accessToken);
+    const syncedFavorites = await loadFavoritesForSession(result.accessToken);
 
     persistAuthSession(nextUser, {
       accessToken: result.accessToken,
@@ -515,6 +565,7 @@ function App() {
     setUser(nextUser);
     saveCart(syncedCart);
     saveOrders(syncedOrders);
+    saveFavorites(syncedFavorites);
     navigate("/profile/edit");
   }
 
@@ -551,6 +602,7 @@ function App() {
 
     persistUser(nextUser);
     setUser(nextUser);
+    saveFavorites(readStoredFavorites());
     navigate("/profile/edit");
   }
 
@@ -572,6 +624,7 @@ function App() {
     const nextUser = await loadProfileFromUserService(result.accessToken);
     const syncedCart = await loadCartForSession(result.accessToken);
     const syncedOrders = await loadOrdersForSession(result.accessToken);
+    const syncedFavorites = await loadFavoritesForSession(result.accessToken);
 
     persistAuthSession(nextUser, {
       accessToken: result.accessToken,
@@ -580,6 +633,7 @@ function App() {
     setUser(nextUser);
     saveCart(syncedCart);
     saveOrders(syncedOrders);
+    saveFavorites(syncedFavorites);
     window.history.replaceState({}, "", "/profile/edit");
     setRoute("editProfile");
   }
@@ -599,6 +653,7 @@ function App() {
     setUser(null);
     saveCart([]);
     saveOrders([]);
+    setFavoriteProductIds([]);
     navigate("/login");
   }
 
@@ -631,6 +686,7 @@ function App() {
         setUser(null);
         saveCart([]);
         saveOrders([]);
+        setFavoriteProductIds([]);
         navigate("/login");
         throw refreshError instanceof Error
           ? refreshError
@@ -693,11 +749,74 @@ function App() {
     setAdminNotice("Đã thêm sản phẩm mới.");
   }
 
-  async function handleUpdateProductStock(productId: string, stockQuantity: number) {
+  async function handleUpdateProduct(productId: string, payload: ProductPayload) {
     await runWithAuthRetry(async (accessToken) => {
-      await updateAdminProductStock(accessToken, productId, stockQuantity);
+      await updateAdminProduct(accessToken, productId, payload);
     });
-    setAdminNotice("Đã cập nhật tồn kho.");
+    setAdminNotice("Đã cập nhật sản phẩm.");
+  }
+
+  async function handleCreateDeal(payload: ProductDealPayload) {
+    await runWithAuthRetry(async (accessToken) => {
+      await createAdminDeal(accessToken, payload);
+    });
+    setAdminNotice("Đã thêm deal.");
+  }
+
+  async function handleDeleteDeal(dealId: string) {
+    await runWithAuthRetry(async (accessToken) => {
+      await deleteAdminDeal(accessToken, dealId);
+    });
+    setAdminNotice("Đã xóa deal.");
+  }
+
+  async function handleRateProduct(productId: string, rating: number) {
+    if (!user) {
+      window.alert("Bạn cần đăng nhập để đánh giá sản phẩm.");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      await runWithAuthRetry(async (accessToken) => {
+        await rateProduct(accessToken, productId, { rating });
+      });
+      window.alert(`Đã lưu đánh giá ${rating} sao.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Không lưu được đánh giá sản phẩm.");
+    }
+  }
+
+  async function handleToggleFavorite(productId: string) {
+    if (!user) {
+      window.alert("Bạn cần đăng nhập để lưu sản phẩm yêu thích.");
+      navigate("/login");
+      return;
+    }
+
+    const wasFavorite = favoriteProductIds.includes(productId);
+    const nextProductIds = favoriteProductIds.includes(productId)
+      ? favoriteProductIds.filter((currentProductId) => currentProductId !== productId)
+      : [...favoriteProductIds, productId];
+
+    saveFavorites(nextProductIds);
+
+    if (!readStoredAuthTokens()?.accessToken) {
+      return;
+    }
+
+    try {
+      await runWithAuthRetry(async (accessToken) => {
+        if (wasFavorite) {
+          await deleteMyFavorite(accessToken, productId);
+        } else {
+          await addMyFavorite(accessToken, productId);
+        }
+      });
+    } catch (error) {
+      saveFavorites(favoriteProductIds);
+      window.alert(error instanceof Error ? error.message : "Không lưu được sản phẩm yêu thích.");
+    }
   }
 
   async function saveProfile(profile: UserProfile) {
@@ -751,6 +870,11 @@ function App() {
   function saveOrders(nextOrders: Order[]) {
     setOrders(nextOrders);
     persistOrders(nextOrders);
+  }
+
+  function saveFavorites(nextProductIds: string[]) {
+    setFavoriteProductIds(nextProductIds);
+    persistFavorites(nextProductIds);
   }
 
   function getOptionalAccessToken() {
@@ -901,7 +1025,7 @@ function App() {
       );
     }
 
-    if (route === "admin" && user?.role !== "admin") {
+    if ((route === "admin" || route === "adminProducts") && user?.role !== "admin") {
       return (
         <main className="commerce-page">
           <section className="empty-commerce">
@@ -917,7 +1041,28 @@ function App() {
 
     switch (route) {
       case "categories":
-        return <CategoriesPage onAddToCart={handleAddToCart} />;
+        return (
+          <CategoriesPage
+            cartItems={cartItems}
+            favoriteProductIds={user ? favoriteProductIds : []}
+            onAddToCart={handleAddToCart}
+            onRateProduct={handleRateProduct}
+            onToggleFavorite={handleToggleFavorite}
+            onUpdateQuantity={handleUpdateCartQuantity}
+          />
+        );
+      case "favorites":
+        return (
+          <FavoritesPage
+            cartItems={cartItems}
+            favoriteProductIds={favoriteProductIds}
+            onAddToCart={handleAddToCart}
+            onNavigate={navigate}
+            onRateProduct={handleRateProduct}
+            onToggleFavorite={handleToggleFavorite}
+            onUpdateQuantity={handleUpdateCartQuantity}
+          />
+        );
       case "cart":
         return (
           <CartPage
@@ -969,7 +1114,21 @@ function App() {
             onConfirmPayment={handleConfirmPayment}
             onCreateCategory={handleCreateCategory}
             onCreateProduct={handleCreateProduct}
-            onUpdateStock={handleUpdateProductStock}
+            onCreateDeal={handleCreateDeal}
+            onDeleteDeal={handleDeleteDeal}
+          />
+        );
+      case "adminProducts":
+        return (
+          <CategoriesPage
+            cartItems={cartItems}
+            favoriteProductIds={[]}
+            isAdmin
+            onAddToCart={handleAddToCart}
+            onRateProduct={handleRateProduct}
+            onToggleFavorite={handleToggleFavorite}
+            onUpdateProduct={handleUpdateProduct}
+            onUpdateQuantity={handleUpdateCartQuantity}
           />
         );
       case "paymentReturn":
@@ -987,6 +1146,10 @@ function App() {
       case "editProfile":
         return user ? <EditProfilePage route={route} user={user} onNavigate={navigate} onSaveProfile={saveProfile} /> : null;
       case "addresses":
+        if (user?.role === "admin") {
+          return <ProfilePage route="profile" user={user} onNavigate={navigate} />;
+        }
+
         return user ? (
           <AddressesPage
             route={route}
@@ -999,7 +1162,16 @@ function App() {
         ) : null;
       case "home":
       default:
-        return <HomePage onAddToCart={handleAddToCart} onNavigate={navigate} />;
+        return (
+          <HomePage
+            cartItems={cartItems}
+            favoriteProductIds={user ? favoriteProductIds : []}
+            onAddToCart={handleAddToCart}
+            onNavigate={navigate}
+            onToggleFavorite={handleToggleFavorite}
+            onUpdateQuantity={handleUpdateCartQuantity}
+          />
+        );
     }
   }
 

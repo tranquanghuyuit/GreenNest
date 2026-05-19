@@ -35,6 +35,8 @@ function getInitials(name: string) {
 }
 
 function AccountLayout({ children, route, user, onNavigate }: AccountLayoutProps) {
+  const visibleAccountNav = user.role === "admin" ? accountNav.filter((item) => item.route !== "addresses") : accountNav;
+
   return (
     <main className="account-page">
       <aside className="account-sidebar">
@@ -46,7 +48,7 @@ function AccountLayout({ children, route, user, onNavigate }: AccountLayoutProps
           </div>
         </div>
         <nav className="account-nav">
-          {accountNav.map((item) => (
+          {visibleAccountNav.map((item) => (
             <button
               className={route === item.route ? "active" : ""}
               key={item.route}
@@ -72,15 +74,16 @@ type ProfilePageProps = {
 
 export function ProfilePage({ route, user, onNavigate }: ProfilePageProps) {
   const defaultAddress = user.addresses.find((address) => address.isDefault) ?? user.addresses[0];
+  const isAdmin = user.role === "admin";
 
   return (
     <AccountLayout route={route} user={user} onNavigate={onNavigate}>
       <section className="account-hero">
         <div className="avatar large">{getInitials(user.fullName)}</div>
         <div>
-          <span className="eyebrow">Tài khoản khách hàng</span>
+          <span className="eyebrow">{isAdmin ? "Tài khoản quản trị" : "Tài khoản khách hàng"}</span>
           <h1>{user.fullName}</h1>
-          <p>Quản lý hồ sơ, địa chỉ giao hàng và thông tin liên quan tới luồng User Service.</p>
+          <p>{isAdmin ? "Hồ sơ quản trị dùng để truy cập kho, danh mục sản phẩm và xác nhận giao dịch." : "Quản lý hồ sơ, địa chỉ giao hàng và thông tin liên quan tới luồng User Service."}</p>
         </div>
         <button type="button" onClick={() => onNavigate("/profile/edit")}>
           <Pencil size={17} />
@@ -147,7 +150,7 @@ export function ProfilePage({ route, user, onNavigate }: ProfilePageProps) {
         </article>
       </section>
 
-      <article className="account-panel">
+      {!isAdmin ? <article className="account-panel">
         <div className="panel-title-row">
           <MapPin size={20} />
           <h2>Địa chỉ mặc định</h2>
@@ -173,7 +176,7 @@ export function ProfilePage({ route, user, onNavigate }: ProfilePageProps) {
             Quản lý địa chỉ
           </button>
         </div>
-      </article>
+      </article> : null}
     </AccountLayout>
   );
 }

@@ -30,7 +30,32 @@ export type Product = {
   unit: string;
   badge: string;
   accent: string;
+  imageUrl: string;
   status: "active" | "inactive";
+  ratingAverage: number;
+  ratingCount: number;
+};
+
+export type ProductReview = {
+  id: string;
+  productId: string;
+  userId: string;
+  userEmail: string;
+  username: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductDeal = {
+  id: string;
+  description: string;
+  productIds: string[];
+  discountPercent: number;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreateCategoryInput = {
@@ -50,5 +75,18 @@ export type CreateProductInput = {
   unit?: string;
   badge?: string;
   accent?: string;
+  imageUrl?: string;
+  status?: "active" | "inactive";
+};
+
+export type ReviewProductInput = {
+  rating?: number;
+  comment?: string;
+};
+
+export type CreateProductDealInput = {
+  description?: string;
+  productIds?: string[];
+  discountPercent?: number;
   status?: "active" | "inactive";
 };

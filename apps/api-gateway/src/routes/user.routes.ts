@@ -47,6 +47,41 @@ userRouter.get("/me/addresses", async (request, response, next) => {
   }
 });
 
+userRouter.get("/me/favorites", async (request, response, next) => {
+  try {
+    const data = await requestJson(buildUserServiceUrl("/users/me/favorites"), {
+      headers: authorizationHeader(request.headers.authorization)
+    });
+    response.json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
+userRouter.post("/me/favorites/:productId", async (request, response, next) => {
+  try {
+    const data = await requestJson(buildUserServiceUrl(`/users/me/favorites/${encodeURIComponent(request.params.productId)}`), {
+      method: "POST",
+      headers: authorizationHeader(request.headers.authorization)
+    });
+    response.status(201).json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
+userRouter.delete("/me/favorites/:productId", async (request, response, next) => {
+  try {
+    const data = await requestJson(buildUserServiceUrl(`/users/me/favorites/${encodeURIComponent(request.params.productId)}`), {
+      method: "DELETE",
+      headers: authorizationHeader(request.headers.authorization)
+    });
+    response.json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
 userRouter.post("/me/addresses", async (request, response, next) => {
   try {
     const data = await requestJson(buildUserServiceUrl("/users/me/addresses"), {

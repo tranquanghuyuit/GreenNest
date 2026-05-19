@@ -1,10 +1,13 @@
 import { UserError } from "../errors/user-error.js";
 import {
   createAddress,
+  createFavorite,
   createProfile,
   deleteAddress,
+  deleteFavorite,
   findProfileByAuthUserId,
   listAddresses,
+  listFavorites,
   updateAddress,
   updateProfile
 } from "../repositories/user.repository.js";
@@ -13,8 +16,10 @@ import type {
   AddressInput,
   ProfileUpdateInput,
   PublicAddress,
+  PublicFavorite,
   PublicProfile,
   UserAddressRecord,
+  UserFavoriteRecord,
   UserProfileRecord
 } from "../types/user.js";
 
@@ -49,6 +54,13 @@ function toPublicAddress(address: UserAddressRecord): PublicAddress {
     district: address.district,
     city: address.city,
     isDefault: address.isDefault
+  };
+}
+
+function toPublicFavorite(favorite: UserFavoriteRecord): PublicFavorite {
+  return {
+    productId: favorite.productId,
+    createdAt: favorite.createdAt.toISOString()
   };
 }
 
@@ -186,6 +198,45 @@ export async function deleteMyAddress(auth: AccessTokenPayload, addressId: strin
   if (!deleted) {
     throw new UserError("Address not found", 404);
   }
+
+  return {
+    success: true
+  };
+}
+
+export async function getMyFavorites(auth: AccessTokenPayload) {
+  const profile = await ensureProfile(auth);
+  const favorites = await listFavorites(profile.id);
+
+  return {
+    items: favorites.map(toPublicFavorite)
+  };
+}
+
+export async function addMyFavorite(auth: AccessTokenPayload, productId: string) {
+  const profile = await ensureProfile(auth);
+  const normalizedProductId = normalizeText(productId);
+
+  if (!normalizedProductId) {
+    throw new UserError("Product id is required", 400);
+  }
+
+  const favorite = await createFavorite(profile.id, normalizedProductId);
+
+  return {
+    favorite: toPublicFavorite(favorite)
+  };
+}
+
+export async function removeMyFavorite(auth: AccessTokenPayload, productId: string) {
+  const profile = await ensureProfile(auth);
+  const normalizedProductId = normalizeText(productId);
+
+  if (!normalizedProductId) {
+    throw new UserError("Product id is required", 400);
+  }
+
+  await deleteFavorite(profile.id, normalizedProductId);
 
   return {
     success: true

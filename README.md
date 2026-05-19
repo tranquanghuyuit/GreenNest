@@ -16,4 +16,3 @@ Dự án môn học xây dựng website thương mại điện tử mini theo ki
 ## Quy Tắc Làm Việc
 
 Trước khi code, Agent cần đọc các file trong `docs/`. Khi hoàn thành task, cập nhật `docs/progress-log.md`.
-"# GreenNest" 

@@ -1,20 +1,24 @@
 import {
   CheckCircle2,
   CreditCard,
+  Heart,
   Minus,
   PackageCheck,
+  Pencil,
   Plus,
   QrCode,
   ReceiptText,
   ShoppingBag,
   ShoppingCart,
+  Star,
   Trash2,
   Truck
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { verifyVnpayReturn } from "../api/payments";
-import { fetchCatalogProducts } from "../api/products";
+import { fetchCatalogProducts, type ProductPayload } from "../api/products";
 import { CategoryIcon } from "../components/CategoryIcon";
+import { ProductEditModal } from "../components/ProductEditModal";
 import { ProductVisual } from "../components/ProductVisual";
 import { categories as fallbackCategories, products, type Category, type Product } from "../data/catalog";
 import type { CartItem, Navigate, Order, Payment, PaymentMethod, UserProfile } from "../types";
@@ -62,15 +66,57 @@ function getCartSummary(cartItems: CartItem[]) {
 type ProductTileProps = {
   product: Product;
   onAddToCart: (productId: string) => void;
+  cartQuantity: number;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRateProduct: (productId: string, rating: number) => Promise<void>;
+  isFavorite: boolean;
+  onToggleFavorite: (productId: string) => void;
+  isAdmin?: boolean;
+  onEditProduct?: (product: Product) => void;
 };
 
-function ProductTile({ product, onAddToCart }: ProductTileProps) {
+function ProductTile({
+  product,
+  onAddToCart,
+  cartQuantity,
+  onUpdateQuantity,
+  onRateProduct,
+  isFavorite,
+  onToggleFavorite,
+  isAdmin = false,
+  onEditProduct
+}: ProductTileProps) {
+  const roundedRating = Math.round(product.ratingAverage ?? 0);
+
   return (
     <article className="product-card commerce-product-card">
       <span className="badge">{product.badge}</span>
+      {isAdmin ? (
+        <button className="wish edit-catalog-button" type="button" aria-label={`Chỉnh sửa ${product.name}`} onClick={() => onEditProduct?.(product)}>
+          <Pencil size={16} />
+        </button>
+      ) : (
+        <button className={isFavorite ? "wish active" : "wish"} type="button" aria-label={`Yêu thích ${product.name}`} onClick={() => onToggleFavorite(product.id)}>
+          <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
+        </button>
+      )}
       <ProductVisual product={product} />
       <p>{product.category}</p>
       <h3>{product.name}</h3>
+      <div className="rating product-rating-actions" aria-label={`Đánh giá ${product.name}`}>
+        {Array.from({ length: 5 }).map((_, index) => {
+          const rating = index + 1;
+
+          return (
+            <button key={rating} type="button" title={`Đánh giá ${rating} sao`} onClick={() => onRateProduct(product.id, rating)}>
+              <Star size={14} fill={rating <= roundedRating ? "currentColor" : "none"} />
+            </button>
+          );
+        })}
+        <span>
+          {(product.ratingAverage ?? 0).toFixed(1)} ({product.ratingCount ?? 0})
+        </span>
+      </div>
       <small>
         {product.brand} - {product.unit}
       </small>
@@ -83,27 +129,57 @@ function ProductTile({ product, onAddToCart }: ProductTileProps) {
           <strong>{product.price}</strong>
           {product.oldPrice ? <del>{product.oldPrice}</del> : null}
         </div>
-        <button type="button" onClick={() => onAddToCart(product.id)}>
-          Thêm
-        </button>
+        {isAdmin ? null : cartQuantity > 0 ? (
+          <div className="quantity-control product-card-quantity">
+            <button type="button" aria-label="Giảm số lượng" onClick={() => onUpdateQuantity(product.id, cartQuantity - 1)}>
+              <Minus size={15} />
+            </button>
+            <span>{cartQuantity}</span>
+            <button type="button" aria-label="Tăng số lượng" onClick={() => onUpdateQuantity(product.id, cartQuantity + 1)}>
+              <Plus size={15} />
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => onAddToCart(product.id)}>
+            Thêm
+          </button>
+        )}
       </div>
     </article>
   );
 }
 
 type CategoriesPageProps = {
+  cartItems: CartItem[];
   onAddToCart: (productId: string) => void;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRateProduct: (productId: string, rating: number) => Promise<void>;
+  favoriteProductIds: string[];
+  onToggleFavorite: (productId: string) => void;
+  isAdmin?: boolean;
+  onUpdateProduct?: (productId: string, payload: ProductPayload) => Promise<void>;
 };
 
 const ALL_CATEGORIES_LABEL = "Tất cả";
 
-export function CategoriesPage({ onAddToCart }: CategoriesPageProps) {
+export function CategoriesPage({
+  cartItems,
+  onAddToCart,
+  onUpdateQuantity,
+  onRateProduct,
+  favoriteProductIds,
+  onToggleFavorite,
+  isAdmin = false,
+  onUpdateProduct
+}: CategoriesPageProps) {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_LABEL);
   const [keyword, setKeyword] = useState("");
   const [catalogProducts, setCatalogProducts] = useState<Product[]>(products);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(fallbackCategories);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -141,7 +217,21 @@ export function CategoriesPage({ onAddToCart }: CategoriesPageProps) {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [catalogRefreshKey]);
+
+  async function handleRateProduct(productId: string, rating: number) {
+    await onRateProduct(productId, rating);
+    setCatalogRefreshKey((current) => current + 1);
+  }
+
+  async function handleUpdateProduct(productId: string, payload: ProductPayload) {
+    if (!onUpdateProduct) {
+      return;
+    }
+
+    await onUpdateProduct(productId, payload);
+    setCatalogRefreshKey((current) => current + 1);
+  }
 
   const visibleProducts = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
@@ -218,7 +308,18 @@ export function CategoriesPage({ onAddToCart }: CategoriesPageProps) {
       {visibleProducts.length > 0 ? (
         <section className="product-grid">
           {visibleProducts.map((product) => (
-            <ProductTile key={product.id} product={product} onAddToCart={onAddToCart} />
+            <ProductTile
+              cartQuantity={cartItems.find((item) => item.productId === product.id)?.quantity ?? 0}
+              isAdmin={isAdmin}
+              isFavorite={favoriteProductIds.includes(product.id)}
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              onEditProduct={setEditingProduct}
+              onRateProduct={handleRateProduct}
+              onToggleFavorite={onToggleFavorite}
+              onUpdateQuantity={onUpdateQuantity}
+            />
           ))}
         </section>
       ) : (
@@ -226,6 +327,105 @@ export function CategoriesPage({ onAddToCart }: CategoriesPageProps) {
           <ShoppingBag size={42} />
           <h2>Không có sản phẩm phù hợp</h2>
           <p>Thử đổi danh mục hoặc từ khóa tìm kiếm để xem sản phẩm khác.</p>
+        </section>
+      )}
+      {isAdmin && editingProduct ? (
+        <ProductEditModal
+          categories={catalogCategories}
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSave={handleUpdateProduct}
+        />
+      ) : null}
+    </main>
+  );
+}
+
+type FavoritesPageProps = {
+  cartItems: CartItem[];
+  favoriteProductIds: string[];
+  onAddToCart: (productId: string) => void;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRateProduct: (productId: string, rating: number) => Promise<void>;
+  onToggleFavorite: (productId: string) => void;
+  onNavigate: Navigate;
+};
+
+export function FavoritesPage({
+  cartItems,
+  favoriteProductIds,
+  onAddToCart,
+  onUpdateQuantity,
+  onRateProduct,
+  onToggleFavorite,
+  onNavigate
+}: FavoritesPageProps) {
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadFavorites() {
+      try {
+        const catalog = await fetchCatalogProducts();
+
+        if (isActive) {
+          setCatalogProducts(catalog.products);
+        }
+      } catch {
+        if (isActive) {
+          setCatalogProducts(products);
+        }
+      }
+    }
+
+    loadFavorites();
+
+    return () => {
+      isActive = false;
+    };
+  }, [catalogRefreshKey]);
+
+  const favoriteProducts = catalogProducts.filter((product) => favoriteProductIds.includes(product.id));
+
+  async function handleRateProduct(productId: string, rating: number) {
+    await onRateProduct(productId, rating);
+    setCatalogRefreshKey((current) => current + 1);
+  }
+
+  return (
+    <main className="commerce-page">
+      <section className="section-heading commerce-heading">
+        <div>
+          <span>Wishlist</span>
+          <h1>Sản phẩm yêu thích</h1>
+        </div>
+        <button className="secondary-button" type="button" onClick={() => onNavigate("/categories")}>
+          Xem sản phẩm
+        </button>
+      </section>
+
+      {favoriteProducts.length > 0 ? (
+        <section className="product-grid">
+          {favoriteProducts.map((product) => (
+            <ProductTile
+              cartQuantity={cartItems.find((item) => item.productId === product.id)?.quantity ?? 0}
+              isFavorite
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              onRateProduct={handleRateProduct}
+              onToggleFavorite={onToggleFavorite}
+              onUpdateQuantity={onUpdateQuantity}
+            />
+          ))}
+        </section>
+      ) : (
+        <section className="empty-commerce">
+          <Heart size={42} />
+          <h2>Chưa có sản phẩm yêu thích</h2>
+          <p>Bấm biểu tượng trái tim trên sản phẩm để lưu vào danh sách này.</p>
         </section>
       )}
     </main>

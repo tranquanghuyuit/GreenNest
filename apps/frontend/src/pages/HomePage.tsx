@@ -1,29 +1,100 @@
-import { Heart, Star } from "lucide-react";
-import type { CSSProperties } from "react";
+import { Heart, Minus, Plus, Star } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { fetchCatalogProducts } from "../api/products";
 import { CategoryIcon } from "../components/CategoryIcon";
 import { ProductVisual } from "../components/ProductVisual";
-import { categories, deals, products } from "../data/catalog";
-import type { Navigate } from "../types";
+import { deals, products, type Category, type Product } from "../data/catalog";
+import type { CartItem, Navigate } from "../types";
 
 type HomePageProps = {
   onNavigate: Navigate;
   onAddToCart: (productId: string) => void;
+  cartItems: CartItem[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  favoriteProductIds: string[];
+  onToggleFavorite: (productId: string) => void;
 };
 
-export function HomePage({ onNavigate, onAddToCart }: HomePageProps) {
+function RatingStars({ product }: { product: Product }) {
+  const roundedRating = Math.round(product.ratingAverage ?? 0);
+
+  return (
+    <div className="rating">
+      {Array.from({ length: 5 }).map((_, index) => {
+        const rating = index + 1;
+
+        return <Star key={rating} size={13} fill={rating <= roundedRating ? "currentColor" : "none"} />;
+      })}
+      <span>{(product.ratingAverage ?? 0).toFixed(1)} ({product.ratingCount ?? 0})</span>
+    </div>
+  );
+}
+
+export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity, favoriteProductIds, onToggleFavorite }: HomePageProps) {
+  const [sidebarCategories, setSidebarCategories] = useState<Category[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [categoryError, setCategoryError] = useState("");
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadSidebarCategories() {
+      setIsLoadingCategories(true);
+      setCategoryError("");
+
+      try {
+        const catalog = await fetchCatalogProducts();
+
+        if (!isActive) {
+          return;
+        }
+
+        setSidebarCategories(catalog.categories);
+        setCatalogProducts(catalog.products);
+
+        if (catalog.categories.length === 0) {
+          setCategoryError("Chưa có danh mục trong Product Service.");
+        }
+      } catch {
+        if (isActive) {
+          setSidebarCategories([]);
+          setCatalogProducts([]);
+          setCategoryError("Không lấy được danh mục từ Product Service.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingCategories(false);
+        }
+      }
+    }
+
+    loadSidebarCategories();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const homeProducts = catalogProducts.length > 0 ? catalogProducts : products;
+
   return (
     <main className="page-grid">
       <aside className="sidebar">
         <section className="panel">
           <h2>Danh mục</h2>
           <div className="category-list">
-            {categories.map((category) => (
-              <button key={category.name} type="button" onClick={() => onNavigate("/categories")}>
-                <CategoryIcon icon={category.icon} />
-                <span>{category.name}</span>
-                <small>{category.count}</small>
-              </button>
-            ))}
+            {isLoadingCategories ? <p className="sidebar-state">Đang tải danh mục...</p> : null}
+            {!isLoadingCategories && categoryError ? <p className="sidebar-state error">{categoryError}</p> : null}
+            {!isLoadingCategories && !categoryError
+              ? sidebarCategories.map((category) => (
+                  <button key={category.name} type="button" onClick={() => onNavigate("/categories")}>
+                    <CategoryIcon icon={category.icon} />
+                    <span>{category.name}</span>
+                    <small>{category.count}</small>
+                  </button>
+                ))
+              : null}
           </div>
         </section>
 
@@ -41,16 +112,12 @@ export function HomePage({ onNavigate, onAddToCart }: HomePageProps) {
 
         <section className="panel mini-products">
           <h2>Sản phẩm nổi bật</h2>
-          {products.slice(0, 4).map((product) => (
+          {homeProducts.slice(0, 4).map((product) => (
             <article key={product.name} className="mini-product">
               <ProductVisual product={product} />
               <div>
                 <h3>{product.name}</h3>
-                <div className="rating">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <Star key={index} size={12} fill="currentColor" />
-                  ))}
-                </div>
+                <RatingStars product={product} />
                 <strong>{product.price}</strong>
               </div>
             </article>
@@ -98,31 +165,43 @@ export function HomePage({ onNavigate, onAddToCart }: HomePageProps) {
         </section>
 
         <section className="product-grid">
-          {products.map((product) => (
+          {homeProducts.map((product) => {
+            const cartQuantity = cartItems.find((item) => item.productId === product.id)?.quantity ?? 0;
+            const isFavorite = favoriteProductIds.includes(product.id);
+
+            return (
             <article key={product.name} className="product-card">
               <span className="badge">{product.badge}</span>
-              <button className="wish" type="button" aria-label={`Yêu thích ${product.name}`}>
-                <Heart size={16} />
+              <button className={isFavorite ? "wish active" : "wish"} type="button" aria-label={`Yêu thích ${product.name}`} onClick={() => onToggleFavorite(product.id)}>
+                <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
               </button>
               <ProductVisual product={product} />
               <p>{product.category}</p>
               <h3>{product.name}</h3>
-              <div className="rating">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <Star key={index} size={13} fill="currentColor" />
-                ))}
-                <span>4.8</span>
-              </div>
+              <RatingStars product={product} />
               <small>By {product.brand}</small>
               <div className="price-row">
                 <div>
                   <strong>{product.price}</strong>
                   {product.oldPrice ? <del>{product.oldPrice}</del> : null}
                 </div>
-                <button type="button" onClick={() => onAddToCart(product.id)}>Thêm</button>
+                {cartQuantity > 0 ? (
+                  <div className="quantity-control product-card-quantity">
+                    <button type="button" aria-label="Giảm số lượng" onClick={() => onUpdateQuantity(product.id, cartQuantity - 1)}>
+                      <Minus size={15} />
+                    </button>
+                    <span>{cartQuantity}</span>
+                    <button type="button" aria-label="Tăng số lượng" onClick={() => onUpdateQuantity(product.id, cartQuantity + 1)}>
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => onAddToCart(product.id)}>Thêm</button>
+                )}
               </div>
             </article>
-          ))}
+            );
+          })}
         </section>
 
         <section className="section-heading deals-heading">

@@ -8,6 +8,8 @@ export type RouteId =
   | "orderSuccess"
   | "paymentReturn"
   | "admin"
+  | "adminProducts"
+  | "favorites"
   | "login"
   | "register"
   | "forgotPassword"

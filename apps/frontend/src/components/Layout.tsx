@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Settings,
   ShoppingCart,
-  Shuffle,
   SlidersHorizontal,
   Truck,
   UserRound
@@ -32,19 +31,23 @@ type LayoutProps = {
 
 const navItems = [
   { label: "Home", path: "/", route: "home" },
-  { label: "Danh mục", path: "/categories", route: "categories" },
   { label: "Sản phẩm", path: "/categories", route: "categories" },
   { label: "Giỏ hàng", path: "/cart", route: "cart" },
-  { label: "Đơn hàng", path: "/orders", route: "orders" },
-  { label: "Cửa hàng", path: "/", route: "home" },
-  { label: "Khuyến mãi", path: "/", route: "home" },
-  { label: "Liên hệ", path: "/", route: "home" }
+  { label: "Đơn hàng", path: "/orders", route: "orders" }
+] satisfies Array<{ label: string; path: string; route: RouteId }>;
+
+const adminNavItems = [
+  { label: "Kho", path: "/admin", route: "admin" },
+  { label: "Danh mục sản phẩm", path: "/admin/products", route: "adminProducts" },
+  { label: "Hồ sơ", path: "/profile", route: "profile" }
 ] satisfies Array<{ label: string; path: string; route: RouteId }>;
 
 export function Layout({ children, route, user, cartItemCount, onNavigate, onLogout }: LayoutProps) {
   const accountRoutes: RouteId[] = ["profile", "editProfile", "addresses"];
   const isAccountRoute = accountRoutes.includes(route);
   const commerceRoutes: RouteId[] = ["cart", "checkout", "orders", "orderDetail", "orderSuccess"];
+  const isAdmin = user?.role === "admin";
+  const activeNavItems = isAdmin ? adminNavItems : navItems;
 
   return (
     <div className="app-shell">
@@ -88,34 +91,39 @@ export function Layout({ children, route, user, cartItemCount, onNavigate, onLog
           </label>
 
           <div className="header-actions">
-            {user?.role === "admin" ? (
+            {isAdmin ? (
               <button
                 className={route === "admin" ? "active" : ""}
                 type="button"
-                aria-label="Admin"
+                aria-label="Kho"
                 onClick={() => onNavigate("/admin")}
               >
                 <Settings size={19} />
-                <span>Admin</span>
+                <span>Kho</span>
               </button>
             ) : null}
-            <button type="button" aria-label="So sánh">
-              <Shuffle size={19} />
-              <span>So sánh</span>
-            </button>
-            <button type="button" aria-label="Yêu thích">
-              <Heart size={19} />
-              <span>Yêu thích</span>
-            </button>
-            <button
-              className={commerceRoutes.includes(route) ? "active" : ""}
-              type="button"
-              aria-label="Giỏ hàng"
-              onClick={() => onNavigate("/cart")}
-            >
-              <ShoppingCart size={19} />
-              <span>Giỏ hàng{cartItemCount > 0 ? ` (${cartItemCount})` : ""}</span>
-            </button>
+            {!isAdmin ? (
+              <button
+                className={route === "favorites" ? "active" : ""}
+                type="button"
+                aria-label="Yêu thích"
+                onClick={() => onNavigate(user ? "/favorites" : "/login")}
+              >
+                <Heart size={19} />
+                <span>Yêu thích</span>
+              </button>
+            ) : null}
+            {!isAdmin ? (
+              <button
+                className={commerceRoutes.includes(route) ? "active" : ""}
+                type="button"
+                aria-label="Giỏ hàng"
+                onClick={() => onNavigate("/cart")}
+              >
+                <ShoppingCart size={19} />
+                <span>Giỏ hàng{cartItemCount > 0 ? ` (${cartItemCount})` : ""}</span>
+              </button>
+            ) : null}
             <button
               className={isAccountRoute ? "active" : ""}
               type="button"
@@ -135,12 +143,12 @@ export function Layout({ children, route, user, cartItemCount, onNavigate, onLog
         </div>
 
         <nav className="nav-bar">
-          <button className="browse-button" type="button" onClick={() => onNavigate("/categories")}>
+          <button className="browse-button" type="button" onClick={() => onNavigate(isAdmin ? "/admin/products" : "/categories")}>
             <Menu size={18} />
-            Tất cả danh mục
+            {isAdmin ? "Danh mục sản phẩm" : "Tất cả danh mục"}
           </button>
           <div className="nav-links">
-            {navItems.map((item) => (
+            {activeNavItems.map((item) => (
               <button
                 className={route === item.route ? "active" : ""}
                 key={item.label}

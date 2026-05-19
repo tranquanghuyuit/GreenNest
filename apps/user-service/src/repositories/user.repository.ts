@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { pool } from "../db/pool.js";
-import type { AddressInput, ProfileUpdateInput, UserAddressRecord, UserProfileRecord } from "../types/user.js";
+import type {
+  AddressInput,
+  ProfileUpdateInput,
+  UserAddressRecord,
+  UserFavoriteRecord,
+  UserProfileRecord
+} from "../types/user.js";
 
 type UserProfileRow = {
   id: string;
@@ -31,11 +37,21 @@ type UserAddressRow = {
   updatedAt: Date;
 };
 
+type UserFavoriteRow = {
+  userProfileId: string;
+  productId: string;
+  createdAt: Date;
+};
+
 function mapProfile(row: UserProfileRow): UserProfileRecord {
   return row;
 }
 
 function mapAddress(row: UserAddressRow): UserAddressRecord {
+  return row;
+}
+
+function mapFavorite(row: UserFavoriteRow): UserFavoriteRecord {
   return row;
 }
 
@@ -66,6 +82,12 @@ const addressSelect = `
   is_default AS "isDefault",
   created_at AS "createdAt",
   updated_at AS "updatedAt"
+`;
+
+const favoriteSelect = `
+  user_profile_id AS "userProfileId",
+  product_id AS "productId",
+  created_at AS "createdAt"
 `;
 
 export async function findProfileByAuthUserId(authUserId: string) {
@@ -277,4 +299,45 @@ export async function deleteAddress(profileId: string, addressId: string) {
   } finally {
     client.release();
   }
+}
+
+export async function listFavorites(profileId: string) {
+  const result = await pool.query<UserFavoriteRow>(
+    `
+      SELECT ${favoriteSelect}
+      FROM user_favorites
+      WHERE user_profile_id = $1
+      ORDER BY created_at DESC
+    `,
+    [profileId]
+  );
+
+  return result.rows.map(mapFavorite);
+}
+
+export async function createFavorite(profileId: string, productId: string) {
+  const result = await pool.query<UserFavoriteRow>(
+    `
+      INSERT INTO user_favorites (user_profile_id, product_id)
+      VALUES ($1, $2)
+      ON CONFLICT (user_profile_id, product_id)
+      DO UPDATE SET product_id = EXCLUDED.product_id
+      RETURNING ${favoriteSelect}
+    `,
+    [profileId, productId]
+  );
+
+  return mapFavorite(result.rows[0]);
+}
+
+export async function deleteFavorite(profileId: string, productId: string) {
+  const result = await pool.query(
+    `
+      DELETE FROM user_favorites
+      WHERE user_profile_id = $1 AND product_id = $2
+    `,
+    [profileId, productId]
+  );
+
+  return Boolean(result.rowCount);
 }
