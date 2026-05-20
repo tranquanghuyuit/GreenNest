@@ -1,10 +1,11 @@
-import { Heart, Minus, Plus, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Minus, Plus, Star } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
-import { fetchCatalogProducts } from "../api/products";
+import { fetchCatalogProducts, fetchProductDeals, type ProductDeal } from "../api/products";
 import { CategoryIcon } from "../components/CategoryIcon";
 import { ProductVisual } from "../components/ProductVisual";
-import { deals, products, type Category, type Product } from "../data/catalog";
+import { products, type Category, type Product } from "../data/catalog";
 import type { CartItem, Navigate } from "../types";
+import { formatMoney } from "../utils/money";
 
 type HomePageProps = {
   onNavigate: Navigate;
@@ -30,9 +31,45 @@ function RatingStars({ product }: { product: Product }) {
   );
 }
 
+const dealAccents = ["#dff8e9", "#fff2d4", "#e8f4ff", "#f7e8ff"];
+
+function getVisibleDeals(deals: ProductDeal[], startIndex: number) {
+  const visibleCount = Math.min(2, deals.length);
+
+  return Array.from({ length: visibleCount }, (_, index) => deals[(startIndex + index) % deals.length]);
+}
+
+function getDealProductNames(deal: ProductDeal, catalogProducts: Product[]) {
+  const names = deal.productIds
+    .map((productId) => catalogProducts.find((product) => product.id === productId)?.name)
+    .filter(Boolean);
+
+  return names.length > 0 ? names.join(", ") : "Combo sản phẩm đang được áp dụng ưu đãi";
+}
+
+function parseMoney(value?: string) {
+  return value ? Number(value.replace(/[^\d]/g, "")) : 0;
+}
+
+function applyDealDiscount(product: Product, deal: ProductDeal): Product {
+  const originalPriceValue = parseMoney(product.oldPrice) || product.priceValue;
+  const discountPrice = Math.round(originalPriceValue * (1 - deal.discountPercent / 100));
+
+  return {
+    ...product,
+    price: formatMoney(discountPrice),
+    priceValue: discountPrice,
+    oldPrice: formatMoney(originalPriceValue),
+    badge: `-${deal.discountPercent}%`
+  };
+}
+
 export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity, favoriteProductIds, onToggleFavorite }: HomePageProps) {
   const [sidebarCategories, setSidebarCategories] = useState<Category[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [catalogDeals, setCatalogDeals] = useState<ProductDeal[]>([]);
+  const [dealStartIndex, setDealStartIndex] = useState(0);
+  const [selectedDeal, setSelectedDeal] = useState<ProductDeal | null>(null);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [categoryError, setCategoryError] = useState("");
 
@@ -44,7 +81,7 @@ export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity,
       setCategoryError("");
 
       try {
-        const catalog = await fetchCatalogProducts();
+        const [catalog, dealsResult] = await Promise.all([fetchCatalogProducts(), fetchProductDeals()]);
 
         if (!isActive) {
           return;
@@ -52,6 +89,7 @@ export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity,
 
         setSidebarCategories(catalog.categories);
         setCatalogProducts(catalog.products);
+        setCatalogDeals(dealsResult.items.filter((deal) => deal.status === "active"));
 
         if (catalog.categories.length === 0) {
           setCategoryError("Chưa có danh mục trong Product Service.");
@@ -60,6 +98,7 @@ export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity,
         if (isActive) {
           setSidebarCategories([]);
           setCatalogProducts([]);
+          setCatalogDeals([]);
           setCategoryError("Không lấy được danh mục từ Product Service.");
         }
       } finally {
@@ -77,6 +116,29 @@ export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity,
   }, []);
 
   const homeProducts = catalogProducts.length > 0 ? catalogProducts : products;
+  const activeDeal = selectedDeal && catalogDeals.some((deal) => deal.id === selectedDeal.id) ? selectedDeal : null;
+  const visibleDeals = getVisibleDeals(catalogDeals, dealStartIndex);
+  const activeDealProductIds = new Set(activeDeal?.productIds ?? []);
+  const visibleProducts = activeDeal
+    ? homeProducts.filter((product) => activeDealProductIds.has(product.id)).map((product) => applyDealDiscount(product, activeDeal))
+    : homeProducts;
+
+  function moveDeal(direction: "previous" | "next") {
+    if (catalogDeals.length <= 1) {
+      return;
+    }
+
+    setDealStartIndex((current) =>
+      direction === "next" ? (current + 1) % catalogDeals.length : (current - 1 + catalogDeals.length) % catalogDeals.length
+    );
+  }
+
+  function handleChooseDeal(deal: ProductDeal) {
+    setSelectedDeal(deal);
+    window.requestAnimationFrame(() => {
+      document.getElementById("home-products")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   return (
     <main className="page-grid">
@@ -148,24 +210,32 @@ export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity,
           </div>
         </section>
 
-        <section className="section-heading">
+        <section className="section-heading" id="home-products">
           <div>
-            <span>Fresh market</span>
-            <h2>Sản phẩm phổ biến</h2>
+            <span>{activeDeal ? `Deal giảm ${activeDeal.discountPercent}%` : "Fresh market"}</span>
+            <h2>{activeDeal ? activeDeal.description : "Sản phẩm phổ biến"}</h2>
           </div>
           <div className="product-tabs">
             <button className="active" type="button">
-              Tất cả
+              {activeDeal ? "Sản phẩm trong deal" : "Tất cả"}
             </button>
-            <button type="button">Rau củ</button>
-            <button type="button">Trái cây</button>
-            <button type="button">Đồ uống</button>
-            <button type="button">Ngũ cốc</button>
+            {activeDeal ? (
+              <button type="button" onClick={() => setSelectedDeal(null)}>
+                Xem tất cả
+              </button>
+            ) : null}
           </div>
         </section>
 
+        {activeDeal ? (
+          <div className="deal-filter-note">
+            Đang hiển thị {visibleProducts.length} sản phẩm thuộc combo deal, giá đã giảm {activeDeal.discountPercent}%.
+          </div>
+        ) : null}
+
+        {visibleProducts.length > 0 ? (
         <section className="product-grid">
-          {homeProducts.map((product) => {
+          {visibleProducts.map((product) => {
             const cartQuantity = cartItems.find((item) => item.productId === product.id)?.quantity ?? 0;
             const isFavorite = favoriteProductIds.includes(product.id);
 
@@ -203,26 +273,55 @@ export function HomePage({ onNavigate, onAddToCart, cartItems, onUpdateQuantity,
             );
           })}
         </section>
+        ) : (
+          <section className="empty-commerce deal-product-empty">
+            <h2>Deal này chưa có sản phẩm hợp lệ</h2>
+            <p>Admin cần kiểm tra lại danh sách sản phẩm được gắn vào deal.</p>
+            <button className="secondary-button" type="button" onClick={() => setSelectedDeal(null)}>
+              Xem tất cả sản phẩm
+            </button>
+          </section>
+        )}
 
         <section className="section-heading deals-heading">
           <div>
             <span>Ưu đãi hôm nay</span>
             <h2>Deals Of The Day</h2>
           </div>
+          {catalogDeals.length > 1 ? (
+            <div className="deal-nav">
+              <button type="button" aria-label="Deal trước" onClick={() => moveDeal("previous")}>
+                <ChevronLeft size={18} />
+              </button>
+              <button type="button" aria-label="Deal sau" onClick={() => moveDeal("next")}>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          ) : null}
         </section>
 
+        {visibleDeals.length > 0 ? (
         <section className="deal-grid">
-          {deals.map((deal) => (
-            <article key={deal.title} className="deal-card" style={{ "--deal-bg": deal.accent } as CSSProperties}>
+          {visibleDeals.map((deal, index) => (
+            <article
+              key={deal.id}
+              className="deal-card"
+              style={{ "--deal-bg": dealAccents[(dealStartIndex + index) % dealAccents.length] } as CSSProperties}
+            >
               <div>
-                <span>Giảm tới 35%</span>
-                <h3>{deal.title}</h3>
-                <p>{deal.text}</p>
-                  <button type="button" onClick={() => onNavigate("/categories")}>Mua ngay</button>
+                <span>Giảm {deal.discountPercent}%</span>
+                <h3>{deal.description}</h3>
+                <p>{getDealProductNames(deal, homeProducts)}</p>
+                <button type="button" onClick={() => handleChooseDeal(deal)}>Mua ngay</button>
               </div>
             </article>
           ))}
         </section>
+        ) : (
+          <section className="deal-empty">
+            <p>Chưa có deal đang hoạt động. Admin có thể thêm deal ở trang Kho.</p>
+          </section>
+        )}
       </section>
     </main>
   );

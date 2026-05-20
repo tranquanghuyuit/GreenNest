@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22.12.0"
+
+jobs:
+  node-build:
+    name: Build ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: frontend
+            working-directory: apps/frontend
+          - app: api-gateway
+            working-directory: apps/api-gateway
+          - app: auth-service
+            working-directory: apps/auth-service
+          - app: user-service
+            working-directory: apps/user-service
+          - app: product-service
+            working-directory: apps/product-service
+          - app: cart-service
+            working-directory: apps/cart-service
+          - app: order-service
+            working-directory: apps/order-service
+          - app: payment-service
+            working-directory: apps/payment-service
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.working-directory }}
+        run: npm ci
+
+      - name: Build TypeScript app
+        working-directory: ${{ matrix.working-directory }}
+        run: npm run build
+
+      - name: Audit production dependencies
+        working-directory: ${{ matrix.working-directory }}
+        run: npm audit --audit-level=high --omit=dev
+
+  docker-build:
+    name: Docker build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    needs: node-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: frontend
+            context: apps/frontend
+          - image: api-gateway
+            context: apps/api-gateway
+          - image: auth-service
+            context: apps/auth-service
+          - image: user-service
+            context: apps/user-service
+          - image: product-service
+            context: apps/product-service
+          - image: cart-service
+            context: apps/cart-service
+          - image: order-service
+            context: apps/order-service
+          - image: payment-service
+            context: apps/payment-service
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image without push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          tags: devsecops-shop/${{ matrix.image }}:ci
+
+  compose-config:
+    name: Validate Docker Compose config
+    runs-on: ubuntu-latest
+    needs: docker-build
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate compose file
+        run: docker compose -f deploy/docker-compose/docker-compose.yml config

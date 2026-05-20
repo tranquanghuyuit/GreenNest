@@ -375,6 +375,22 @@ services:
     networks:
       - devsecops-shop
 
+  frontend:
+    build:
+      context: ../../apps/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    image: devsecops-shop/frontend:dev
+    container_name: devsecops-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - devsecops-shop
+
 networks:
   devsecops-shop:
     name: devsecops-shop

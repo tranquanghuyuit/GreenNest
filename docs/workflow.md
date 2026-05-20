@@ -1092,6 +1092,397 @@ Lý do phải chạy container:
 - Service backend cần chạy để nhận HTTP request.
 - API Gateway cần chạy để frontend gọi `localhost:4000`.
 
+## 9. Workflow Admin: Kho, Danh Mục Sản Phẩm, Sửa Product
+
+Chức năng:
+
+- Admin chỉ dùng các màn hình chính: `Kho`, `Danh mục sản phẩm`, `Hồ sơ`.
+- Trang `Kho` dùng để xác nhận thanh toán, thêm category, thêm product và quản lý deal.
+- Trang `Danh mục sản phẩm` dùng lại UI danh mục của user, nhưng mỗi product có nút cây bút để sửa.
+- Hồ sơ admin không hiển thị mục địa chỉ giao hàng.
+
+Luồng chính:
+
+**B1. `apps/frontend/src/components/Layout.tsx`**
+
+Layout kiểm tra `user.role`.
+
+- Nếu là admin: nav chỉ hiện `Kho`, `Danh mục sản phẩm`, `Hồ sơ`.
+- Nút bánh răng dẫn đến `/admin` và hiển thị chữ `Kho`.
+- Admin không thấy các tab user như giỏ hàng/yêu thích trong header.
+
+Lý do: admin và customer có workflow khác nhau, không nên dùng chung toàn bộ menu.
+
+**B2. `apps/frontend/src/App.tsx`**
+
+File này điều phối route admin:
+
+```text
+/admin          -> AdminPage
+/admin/products -> CategoriesPage ở chế độ admin
+```
+
+Nó cũng chặn user thường vào trang admin.
+
+Lý do: `App.tsx` là nơi giữ user session và quyết định quyền truy cập route.
+
+**B3. `apps/frontend/src/pages/AdminPages.tsx`**
+
+Trang `Kho` hiện:
+
+- danh sách đơn hàng cần admin xác nhận thanh toán
+- form thêm category
+- form thêm product
+- form thêm/xóa deal
+
+Đơn hàng đã hủy sẽ hiện nút xám `Đã hủy`, không còn hiện nút xác nhận giao dịch.
+
+Lý do: đơn đã hủy không được phép xác nhận thanh toán nữa.
+
+**B4. `apps/frontend/src/pages/CommercePages.tsx`**
+
+Khi route là `/admin/products`, `CategoriesPage` chạy ở chế độ admin.
+
+Mỗi product card hiện nút cây bút thay vì nút yêu thích/thêm giỏ.
+
+Lý do: admin cần sửa product trực tiếp trên danh mục, còn user cần mua hàng.
+
+**B5. `apps/frontend/src/components/ProductEditModal.tsx`**
+
+Modal sửa product gồm:
+
+- tên
+- mô tả
+- ảnh
+- giá
+- sale %
+- tồn kho
+- category
+- trạng thái
+
+Category được chọn bằng dropdown từ danh sách category thật.
+
+Lý do: nhập tay category dễ sai `categoryId`, nên admin phải chọn từ dữ liệu có sẵn.
+
+**B6. `apps/frontend/src/api/products.ts`**
+
+Frontend gọi Product Admin API qua API Gateway:
+
+```text
+POST   /api/products/categories
+POST   /api/products
+PATCH  /api/products/:id
+```
+
+Lý do: frontend không gọi trực tiếp Product Service.
+
+## 10. Workflow Product: Rating, Review Và Rating Thật Trên UI
+
+Chức năng:
+
+- User đánh giá sao cho sản phẩm.
+- Home và Categories hiển thị `ratingAverage`, `ratingCount` thật từ Product Service.
+- Không dùng cố định `4.8 sao` nữa.
+
+Luồng chính:
+
+**B1. `apps/frontend/src/pages/CommercePages.tsx` và `HomePage.tsx`**
+
+Product card hiển thị sao dựa trên:
+
+```text
+product.ratingAverage
+product.ratingCount
+```
+
+Khi user bấm sao, frontend gọi callback trong `App.tsx`.
+
+**B2. `apps/frontend/src/App.tsx`**
+
+Hàm `handleRateProduct` yêu cầu user đăng nhập rồi gọi API products.
+
+Lý do: rating phải gắn với user thật, không để khách vãng lai ghi rating ẩn danh.
+
+**B3. `apps/frontend/src/api/products.ts`**
+
+Gọi:
+
+```text
+POST /api/products/:id/reviews
+```
+
+Gửi kèm Bearer token.
+
+**B4. `apps/api-gateway/src/routes/product.routes.ts`**
+
+Gateway forward request sang Product Service.
+
+**B5. `apps/product-service/src/routes/product.routes.ts`**
+
+Product Service dùng `require-auth` để đọc user từ access token rồi gọi service layer.
+
+**B6. `apps/product-service/src/services/product.service.ts`**
+
+Service validate rating, rồi gọi repository lưu review.
+
+**B7. `apps/product-service/src/repositories/product.repository.ts`**
+
+Repository ghi/đọc bảng review trong `product-db`, sau đó tính lại rating trung bình cho product.
+
+Kết quả:
+
+```text
+product_reviews -> Product Service -> API Gateway -> Frontend
+```
+
+## 11. Workflow User: Yêu Thích Sản Phẩm
+
+Chức năng:
+
+- User bấm trái tim để lưu product vào danh sách yêu thích.
+- Dữ liệu yêu thích được lưu trong `user-db`, không chỉ lưu ở frontend.
+- Trang `/favorites` hiển thị sản phẩm yêu thích.
+
+Endpoint chính:
+
+```text
+GET    /api/users/me/favorites
+POST   /api/users/me/favorites/:productId
+DELETE /api/users/me/favorites/:productId
+```
+
+Luồng chính:
+
+**B1. `apps/frontend/src/pages/HomePage.tsx` và `CommercePages.tsx`**
+
+Product card có nút trái tim.
+
+Khi bấm, page gọi callback `onToggleFavorite`.
+
+**B2. `apps/frontend/src/App.tsx`**
+
+`App.tsx` kiểm tra user đã đăng nhập chưa.
+
+- Nếu chưa đăng nhập: chuyển sang login.
+- Nếu đã đăng nhập: cập nhật UI trước, rồi gọi User API.
+
+Lý do: UI phản hồi nhanh, nhưng dữ liệu thật vẫn phải lưu trong backend.
+
+**B3. `apps/frontend/src/api/users.ts`**
+
+Gọi API favorite qua API Gateway.
+
+**B4. `apps/api-gateway/src/routes/user.routes.ts`**
+
+Gateway forward request sang User Service và giữ lại Authorization header.
+
+**B5. `apps/user-service/src/routes/user.routes.ts`**
+
+User Service verify token bằng `require-auth`, sau đó gọi service layer.
+
+**B6. `apps/user-service/src/services/user.service.ts`**
+
+Service lấy profile theo token, rồi thêm/xóa product trong danh sách yêu thích.
+
+**B7. `apps/user-service/src/repositories/user.repository.ts`**
+
+Repository đọc/ghi bảng:
+
+```text
+user_favorites
+```
+
+Kết quả:
+
+```text
+user_favorites -> User Service -> API Gateway -> Frontend
+```
+
+## 12. Workflow Deal: Quản Lý Deal Và Lọc Sản Phẩm Theo Combo
+
+Chức năng:
+
+- Deal nằm trong Product Service vì deal áp dụng lên product/combo product.
+- Admin thêm/xóa deal ở trang `Kho`.
+- Home hiển thị tối đa 2 deal/lần trong `Deals Of The Day`.
+- Có nút mũi tên để chuyển qua lại giữa các deal.
+- User bấm `Mua ngay` ở deal thì danh sách sản phẩm phía trên chỉ hiện các product thuộc deal đó.
+- Giá deal được tính từ giá gốc, không cộng dồn sale cũ.
+
+Ví dụ:
+
+```text
+Giá gốc: 100.000
+Product sale riêng: 14% -> 86.000
+Deal: 30%
+Giá theo deal = 100.000 * 70% = 70.000
+```
+
+Không tính:
+
+```text
+86.000 * 70%
+```
+
+Endpoint chính:
+
+```text
+GET    /api/products/deals
+POST   /api/products/deals
+DELETE /api/products/deals/:id
+```
+
+Luồng admin tạo deal:
+
+**B1. `apps/frontend/src/pages/AdminPages.tsx`**
+
+Admin nhập:
+
+- mô tả deal
+- danh sách product áp dụng
+- phần trăm giảm
+
+Sau đó gọi callback trong `App.tsx`.
+
+**B2. `apps/frontend/src/App.tsx`**
+
+`App.tsx` gọi `createAdminDeal` hoặc `deleteAdminDeal` với access token admin.
+
+**B3. `apps/frontend/src/api/products.ts`**
+
+API client gọi:
+
+```text
+POST /api/products/deals
+DELETE /api/products/deals/:id
+```
+
+**B4. `apps/api-gateway/src/routes/product.routes.ts`**
+
+Gateway forward request sang Product Service.
+
+**B5. `apps/product-service/src/routes/product.routes.ts`**
+
+Product Service dùng `requireAdmin` để chỉ admin mới được thêm/xóa deal.
+
+**B6. `apps/product-service/src/services/product.service.ts`**
+
+Service validate:
+
+- mô tả không rỗng
+- `productIds` có ít nhất một product
+- `discountPercent` từ 1 đến 90
+- product trong deal phải tồn tại
+
+**B7. `apps/product-service/src/repositories/product.repository.ts`**
+
+Repository đọc/ghi bảng:
+
+```text
+product_deals
+```
+
+Luồng user bấm `Mua ngay`:
+
+**B1. `apps/frontend/src/pages/HomePage.tsx`**
+
+Home gọi:
+
+```text
+GET /api/products
+GET /api/products/deals
+```
+
+Sau đó render tối đa 2 deal trong `Deals Of The Day`.
+
+**B2. User bấm `Mua ngay`**
+
+Home lưu deal đang chọn vào state `selectedDeal`.
+
+**B3. Home lọc sản phẩm**
+
+Chỉ giữ các product có `product.id` nằm trong:
+
+```text
+selectedDeal.productIds
+```
+
+**B4. Home tính giá deal**
+
+Nếu product đã có `oldPrice`, xem `oldPrice` là giá gốc.
+
+Nếu product chưa có `oldPrice`, dùng `priceValue` làm giá gốc.
+
+Sau đó:
+
+```text
+dealPrice = originalPrice * (100 - discountPercent) / 100
+```
+
+Lý do: deal là chương trình giá riêng, không giảm chồng lên giá đã sale trước đó.
+
+## 13. Workflow CI/CD Tiếp Theo
+
+Theo `docs/devsecops-pipeline.md`, sau khi core service đã có code thật và Docker Compose chạy được, bước tiếp theo đúng quy trình là làm CI/CD.
+
+Thứ tự nên làm:
+
+**B1. CI cơ bản**
+
+Tạo GitHub Actions trong:
+
+```text
+.github/workflows/
+```
+
+Workflow đầu tiên nên chạy:
+
+- checkout source code
+- cài dependencies bằng `npm ci`
+- build frontend
+- build từng backend service
+- chạy test nếu service có test
+
+Lý do: trước khi deploy, phải đảm bảo code build được trên môi trường sạch của GitHub Actions.
+
+**B2. Security scan**
+
+Thêm các bước scan:
+
+- secret scan bằng Gitleaks
+- dependency scan bằng `npm audit` hoặc Trivy filesystem scan
+- SAST bằng Semgrep
+
+Lý do: đây là phần DevSecOps, bắt lỗi bảo mật sớm trước khi build image/deploy.
+
+**B3. Build Docker image**
+
+Build image cho các backend service đã có Dockerfile.
+
+Frontend hiện chưa cần Dockerfile vì đang chạy Vite local; khi chuẩn bị deploy thật sẽ thêm Dockerfile frontend sau.
+
+**B4. Container scan và SBOM**
+
+Sau khi build image, dùng Trivy scan image và tạo SBOM.
+
+**B5. CD**
+
+CD lên dev/staging/production chỉ nên làm sau khi có:
+
+- CI xanh ổn định
+- image registry
+- Kubernetes manifest hoặc Helm chart rõ ràng
+- secret/config theo môi trường
+
+Kết luận:
+
+```text
+Bước tiếp theo nên code CI trước, chưa vội CD lên cloud.
+```
+
 ## Workflow Sẽ Thêm Sau
 
-9. Notification Service: nhận event và ghi log/gửi thông báo.
+14. Notification Service: nhận event và ghi log/gửi thông báo.
+15. Kubernetes manifests và Helm chart.
+16. Monitoring runtime: Prometheus, Grafana, Alertmanager.
+17. Logging runtime: Loki/Promtail hoặc ELK.

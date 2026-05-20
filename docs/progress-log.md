@@ -60,6 +60,38 @@ Không ghi chung chung kiểu "đã sửa code". Phải ghi đủ để người
 
 ## 4. Nhật Ký Thay Đổi
 
+### 2026-05-20 - Ghi lại workflow admin, deal, favorite và xác nhận bước CI/CD tiếp theo
+
+**Người thực hiện:** Agent
+
+**Mục tiêu:**
+- Ghi ngắn gọn các workflow mới đã làm gần đây.
+- Xác nhận bước tiếp theo theo tài liệu DevSecOps pipeline.
+
+**File/thư mục thay đổi:**
+- `docs/workflow.md`
+- `docs/progress-log.md`
+
+**Nội dung đã làm:**
+- Bổ sung workflow admin: trang `Kho`, trang `Danh mục sản phẩm`, modal sửa product và hồ sơ admin.
+- Bổ sung workflow rating/review để Home và Categories dùng số sao thật từ Product Service.
+- Bổ sung workflow favorite: user bấm trái tim, frontend gọi User Service và lưu vào bảng `user_favorites`.
+- Bổ sung workflow deal: admin thêm/xóa deal, deal lưu trong `product_deals`, Home chỉ hiện tối đa 2 deal và có mũi tên chuyển deal.
+- Ghi rõ logic giá deal: deal tính trên giá gốc, không giảm chồng lên giá đã sale trước đó.
+- Ghi rõ bước tiếp theo đúng quy trình là code CI trước: build, test, secret scan, dependency scan, SAST; CD/cloud làm sau khi CI ổn và có deploy manifest rõ.
+
+**Kiểm tra:**
+- Đọc `docs/devsecops-pipeline.md` và `docs/file-structure.md` để đối chiếu thứ tự CI/CD.
+- Chỉ sửa tài liệu Markdown, không chạy build code.
+
+**Kết quả:**
+- `docs/workflow.md` đã có thêm các mục workflow mới theo thứ tự.
+- `docs/progress-log.md` đã ghi lại thay đổi tài liệu và hướng đi tiếp theo.
+
+**Việc còn lại:**
+- Code GitHub Actions CI cơ bản trong `.github/workflows/`.
+- Sau CI mới làm security scan sâu hơn, build image, scan image, SBOM và CD.
+
 ### 2026-05-18 - Hoàn thiện Order Service và nối checkout vào backend thật
 
 **Người thực hiện:** Agent
