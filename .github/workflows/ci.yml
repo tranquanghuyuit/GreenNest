@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  build:
+    name: Build and audit ${{ matrix.service.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: api-gateway
+            path: apps/api-gateway
+          - name: auth-service
+            path: apps/auth-service
+          - name: user-service
+            path: apps/user-service
+          - name: product-service
+            path: apps/product-service
+          - name: cart-service
+            path: apps/cart-service
+          - name: order-service
+            path: apps/order-service
+          - name: payment-service
+            path: apps/payment-service
+          - name: frontend
+            path: apps/frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: ${{ matrix.service.path }}
+
+      - name: Build service
+        run: npm run build
+        working-directory: ${{ matrix.service.path }}
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate
+        working-directory: ${{ matrix.service.path }}
+
+  security:
+    name: Security scan
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+
+      - name: Run Gitleaks
+        uses: zricethezav/gitleaks-action@v8
+        with:
+          args: --path=. --redact
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.14.0
+        with:
+          scan-type: filesystem
+          scan-path: .
+          format: table
+
+      - name: Run Kubescape against manifests
+        run: |
+          if [ -d deploy/kubernetes ]; then
+            curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | bash
+            kubescape scan deploy/kubernetes --format json --output kubescape-results.json || true
+          else
+            echo "No deploy/kubernetes folder found; skipping Kubescape."
+          fi
+
+      - name: NeuVector integration note
+        run: |
+          echo "NeuVector is a runtime security platform."
+          echo "Integrate it in your cluster deployment stage after resources are created."
