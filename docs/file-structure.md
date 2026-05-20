@@ -839,6 +839,16 @@ Chứa script tiện ích:
 - run healthcheck.
 - generate complete Kubernetes manifest.
 
+Cấu trúc hiện tại có thêm:
+
+```text
+scripts/
+  ci/
+    smoke-test.sh
+```
+
+- `scripts/ci/smoke-test.sh`: script CI chạy sau khi Docker Compose stack đã lên, dùng `curl` để kiểm tra API Gateway, Product API, frontend Nginx và proxy `/api` của frontend.
+
 ## 14. .github/workflows/
 
 Chứa GitHub Actions workflows:
@@ -848,6 +858,35 @@ Chứa GitHub Actions workflows:
 - `deploy-dev.yml`
 - `deploy-staging.yml`
 - `deploy-prod.yml`
+
+`ci.yml` hiện là pipeline chính của dự án:
+
+- build frontend và các backend service bằng `npm ci`, `npm run build`.
+- chạy unit test bằng `npm test` trong từng app.
+- chạy SAST bằng Semgrep.
+- chạy CodeQL để tạo code scanning report trên GitHub.
+- chạy Trivy filesystem scan để kiểm tra dependency, secret và misconfig.
+- chạy OWASP Dependency-Check để tạo báo cáo SCA dạng artifact.
+- build Docker image cho từng service.
+- scan Docker image bằng Trivy ở chế độ report-only.
+- validate Docker Compose config.
+- chạy API smoke test bằng Docker Compose.
+
+Ghi chú: hiện chưa push image lên GHCR, chưa CD Kubernetes, chưa cấu hình monitoring runtime trong CI.
+
+### Test trong từng app
+
+Các app có thư mục `tests/` và script:
+
+```text
+npm test
+```
+
+Quy ước:
+
+- `tests/*.test.ts`: unit test hoặc service-level test nhỏ.
+- Test hiện dùng Node.js built-in test runner với `tsx`.
+- Các test chưa đụng database thật; API smoke test mới là lớp kiểm tra container/API thật qua Docker Compose.
 
 ## 15. Luật Tạo File Cho Agent
 

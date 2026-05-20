@@ -14,11 +14,29 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 env:
   NODE_VERSION: "22.12.0"
 
 jobs:
+  codeql-analysis:
+    name: CodeQL analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended,security-and-quality
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
   semgrep-sast:
     name: Semgrep SAST
     runs-on: ubuntu-latest
@@ -56,6 +74,46 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: table
+
+  owasp-dependency-check:
+    name: OWASP Dependency-Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Cache OWASP Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: dependency-check-data
+          key: dependency-check-data-${{ runner.os }}
+          restore-keys: |
+            dependency-check-data-
+
+      - name: Run OWASP Dependency-Check report
+        continue-on-error: true
+        run: |
+          mkdir -p dependency-check-report dependency-check-data
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -v "${{ github.workspace }}/dependency-check-report:/report" \
+            -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
+            owasp/dependency-check:12.2.2 \
+            --project "GreenNest" \
+            --scan /src/apps \
+            --format HTML \
+            --format JSON \
+            --out /report \
+            --failOnCVSS 11
+
+      - name: Upload OWASP Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check-report
+          path: dependency-check-report
+          if-no-files-found: warn
 
   node-build:
     name: Build ${{ matrix.app }}
@@ -100,6 +158,10 @@ jobs:
         working-directory: ${{ matrix.working-directory }}
         run: npm run build
 
+      - name: Run unit tests
+        working-directory: ${{ matrix.working-directory }}
+        run: npm test
+
       - name: Audit production dependencies
         working-directory: ${{ matrix.working-directory }}
         run: npm audit --audit-level=high --omit=dev
@@ -108,8 +170,10 @@ jobs:
     name: Docker build ${{ matrix.image }}
     runs-on: ubuntu-latest
     needs:
+      - codeql-analysis
       - semgrep-sast
       - trivy-repo-scan
+      - owasp-dependency-check
       - node-build
     strategy:
       fail-fast: false
@@ -169,3 +233,26 @@ jobs:
 
       - name: Validate compose file
         run: docker compose -f deploy/docker-compose/docker-compose.yml config
+
+  api-smoke-test:
+    name: API smoke test
+    runs-on: ubuntu-latest
+    needs: docker-build
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose stack
+        run: docker compose -f deploy/docker-compose/docker-compose.yml up -d --build --wait --wait-timeout 180
+
+      - name: Run smoke test
+        run: bash scripts/ci/smoke-test.sh
+
+      - name: Show container status
+        if: always()
+        run: docker compose -f deploy/docker-compose/docker-compose.yml ps
+
+      - name: Stop Docker Compose stack
+        if: always()
+        run: docker compose -f deploy/docker-compose/docker-compose.yml down -v

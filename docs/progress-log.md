@@ -60,6 +60,48 @@ Không ghi chung chung kiểu "đã sửa code". Phải ghi đủ để người
 
 ## 4. Nhật Ký Thay Đổi
 
+### 2026-05-21 - Bổ sung test, CodeQL, OWASP Dependency-Check và API smoke test vào CI
+
+**Người thực hiện:** Agent
+
+**Mục tiêu:**
+- Hoàn thiện thêm phần CI theo hướng DevSecOps: có unit test, code scanning, OWASP SCA report và API smoke test.
+- Chưa làm GHCR, CD Kubernetes hoặc monitoring runtime theo yêu cầu hiện tại.
+
+**File/thư mục thay đổi:**
+- `.github/workflows/ci.yml`
+- `scripts/ci/smoke-test.sh`
+- `apps/*/package.json`
+- `apps/frontend/package-lock.json`
+- `apps/*/tests/*.test.ts`
+- `docs/file-structure.md`
+- `docs/workflow.md`
+- `docs/progress-log.md`
+
+**Nội dung đã làm:**
+- Thêm script `npm test` cho frontend và 7 backend service chính.
+- Thêm unit test cho auth, API Gateway, product, user, cart, order, payment và frontend.
+- Thêm CodeQL analysis vào CI để có GitHub code scanning report.
+- Thêm OWASP Dependency-Check ở chế độ report-only và upload artifact.
+- Thêm API smoke test bằng Docker Compose để kiểm tra `/health`, `/api/products`, frontend Nginx và proxy `/api`.
+- Cập nhật docs để ghi rõ CI hiện tại đã có gì và phần nào chưa làm.
+
+**Kiểm tra:**
+- Chạy `npm run build` cho frontend, api-gateway, auth-service, user-service, product-service, cart-service, order-service, payment-service.
+- Chạy `npm test` cho frontend, api-gateway, auth-service, user-service, product-service, cart-service, order-service, payment-service.
+- Chạy `docker compose -f deploy/docker-compose/docker-compose.yml config --quiet`.
+- Kiểm tra smoke endpoint bằng PowerShell: `localhost:4000/health`, `localhost:4000/api/products?limit=1`, `localhost:8080`, `localhost:8080/api/products?limit=1`.
+
+**Kết quả:**
+- Build và unit test local đều pass.
+- Docker Compose config hợp lệ.
+- Các endpoint smoke test local đều trả `200`.
+- Không chạy được `scripts/ci/smoke-test.sh` trực tiếp trên máy Windows vì môi trường hiện tại không có Bash/WSL đầy đủ; GitHub Actions runner Ubuntu có Bash nên vẫn dùng được trong CI.
+
+**Việc còn lại:**
+- Push lên GitHub để kiểm tra CI thật.
+- Sau khi CI ổn định mới làm GHCR, CD Kubernetes và monitoring Prometheus/Grafana.
+
 ### 2026-05-20 - Ghi lại workflow admin, deal, favorite và xác nhận bước CI/CD tiếp theo
 
 **Người thực hiện:** Agent

@@ -1480,9 +1480,150 @@ Kết luận:
 Bước tiếp theo nên code CI trước, chưa vội CD lên cloud.
 ```
 
+## 14. Workflow CI Hiện Tại: Test, Scan, Build Image, Smoke Test
+
+Chức năng:
+
+- Tự kiểm tra code khi push hoặc pull request.
+- Chạy unit test cho frontend và các service.
+- Chạy nhiều lớp security scan theo hướng DevSecOps.
+- Build Docker image cho từng service.
+- Chạy smoke test để kiểm tra luồng HTTP thật sau khi Docker Compose stack khởi động.
+
+File chính:
+
+```text
+.github/workflows/ci.yml
+scripts/ci/smoke-test.sh
+```
+
+Luồng chi tiết:
+
+**B1. GitHub nhận push/pull request**
+
+Workflow `ci.yml` chạy khi push lên `main`, `develop`, `feature/**`, khi mở pull request, hoặc khi bấm chạy thủ công `workflow_dispatch`.
+
+Lý do: mọi thay đổi quan trọng đều phải qua CI trước khi nghĩ tới deploy.
+
+**B2. `node-build`**
+
+CI chạy matrix cho:
+
+```text
+frontend
+api-gateway
+auth-service
+user-service
+product-service
+cart-service
+order-service
+payment-service
+```
+
+Mỗi app chạy:
+
+```text
+npm ci
+npm run build
+npm test
+npm audit --audit-level=high --omit=dev
+```
+
+Lý do: đảm bảo code build được, test cơ bản pass và dependency production không có lỗ hổng high theo `npm audit`.
+
+**B3. Unit test trong từng app**
+
+Các file `tests/*.test.ts` kiểm tra helper quan trọng:
+
+- auth: hash password, verify password, sign/verify token.
+- gateway: helper gọi HTTP sang upstream service.
+- product: validate dữ liệu product/deal trước khi chạm DB.
+- user/cart/order/payment: verify JWT.
+- payment: VNPAY query string, VietQR helper.
+- frontend: format tiền.
+
+Lý do: bắt lỗi logic nhỏ sớm trước khi chạy container.
+
+**B4. Semgrep SAST**
+
+Semgrep scan source code bằng config `p/ci`.
+
+Lý do: phát hiện pattern code không an toàn ở mức source code.
+
+**B5. CodeQL analysis**
+
+CodeQL chạy với language `javascript-typescript` và query `security-extended,security-and-quality`.
+
+Lý do: tạo báo cáo code scanning đẹp trong GitHub, bổ sung góc nhìn security/code quality bên cạnh Semgrep.
+
+**B6. Trivy repo scan**
+
+Trivy scan filesystem với:
+
+```text
+scanners: vuln,secret,misconfig
+severity: HIGH,CRITICAL
+exit-code: 1
+```
+
+Lý do: chặn CI nếu repo có secret, Dockerfile/compose misconfig nghiêm trọng hoặc dependency có lỗi high/critical rõ ràng.
+
+**B7. OWASP Dependency-Check**
+
+OWASP Dependency-Check scan thư mục `apps/` và upload report artifact.
+
+Hiện để report-only vì lần đầu tải NVD database có thể chậm hoặc nhiễu false positive.
+
+Lý do: bổ sung lớp SCA theo bộ công cụ OWASP, phù hợp yêu cầu DevSecOps.
+
+**B8. Docker build và Trivy image scan**
+
+CI build image cho từng service, sau đó Trivy scan image.
+
+Image scan hiện để `exit-code: 0`, nghĩa là tạo report nhưng chưa làm fail CI.
+
+Lý do: base image có thể phát sinh CVE từ OS package; giai đoạn này cần nhìn thấy report trước, sau đó mới quyết định policy chặn.
+
+**B9. Docker Compose validate**
+
+CI chạy:
+
+```text
+docker compose -f deploy/docker-compose/docker-compose.yml config
+```
+
+Lý do: bắt lỗi YAML, service name, network, volume, environment trước khi deploy.
+
+**B10. API smoke test**
+
+CI chạy Docker Compose stack rồi gọi `scripts/ci/smoke-test.sh`.
+
+Script kiểm tra:
+
+```text
+GET http://localhost:4000/health
+GET http://localhost:4000/api/products?limit=1
+GET http://localhost:8080
+GET http://localhost:8080/api/products?limit=1
+```
+
+Lý do: đây là API test tối thiểu để xác nhận luồng thật:
+
+```text
+Frontend/Nginx -> API Gateway -> Product Service -> product-db
+```
+
+Trạng thái chưa làm:
+
+- Chưa push image lên GHCR.
+- Chưa CD deploy Kubernetes.
+- Chưa bật monitoring Prometheus/Grafana trong pipeline.
+
 ## Workflow Sẽ Thêm Sau
 
-14. Notification Service: nhận event và ghi log/gửi thông báo.
-15. Kubernetes manifests và Helm chart.
-16. Monitoring runtime: Prometheus, Grafana, Alertmanager.
-17. Logging runtime: Loki/Promtail hoặc ELK.
+15. Notification Service: nhận event và ghi log/gửi thông báo.
+16. Push Docker image lên GHCR.
+17. Kubernetes manifests và Helm chart.
+18. CD deploy Kubernetes.
+19. Monitoring runtime: Prometheus, Grafana, Alertmanager.
+20. Logging runtime: Loki/Promtail hoặc ELK.
