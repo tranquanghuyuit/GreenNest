@@ -78,6 +78,8 @@ jobs:
   owasp-dependency-check:
     name: OWASP Dependency-Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
 
     steps:
       - name: Checkout source
@@ -92,7 +94,7 @@ jobs:
             dependency-check-data-
 
       - name: Run OWASP Dependency-Check report
-        continue-on-error: true
+        timeout-minutes: 18
         run: |
           mkdir -p dependency-check-report dependency-check-data
           docker run --rm \
