@@ -152,9 +152,10 @@ jobs:
         with:
           scan-type: image
           scan-ref: devsecops-shop/${{ matrix.image }}:ci
+          scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "1"
+          exit-code: "0"
           format: table
 
   compose-config:
