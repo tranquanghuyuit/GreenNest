@@ -375,6 +375,25 @@ services:
     networks:
       - devsecops-shop
 
+  frontend:
+    build:
+      context: ../../apps/frontend
+      dockerfile: Dockerfile
+    image: devsecops-shop/frontend:dev
+    container_name: devsecops-frontend
+    ports:
+      - "5173:80"          # host:5173 -> container:80
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devsecops-shop
+      
 networks:
   devsecops-shop:
     name: devsecops-shop
@@ -386,3 +405,4 @@ volumes:
   order-db-data:
   payment-db-data:
   product-db-data:
+
