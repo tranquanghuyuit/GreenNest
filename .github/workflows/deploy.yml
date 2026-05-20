@@ -64,7 +64,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_REF: ${{ github.ref }}
         run: |
-          IMAGE_NAME="${REGISTRY}/${REPO_OWNER}/greennest-${SERVICE_NAME}"
+          IMAGE_NAME="${REGISTRY}/huy2k5/greennest-${SERVICE_NAME}"
           IMAGE_TAG="${GITHUB_SHA}"
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             IMAGE_TAG="${GITHUB_REF#refs/tags/}"
@@ -79,7 +79,6 @@ jobs:
           file: ${{ matrix.service.path }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.image }}
-          cache-from: type=registry,ref=${{ steps.meta.outputs.image_latest }}
           cache-to: type=inline
 
   deploy-dev:
