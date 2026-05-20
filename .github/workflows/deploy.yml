@@ -1,5 +1,9 @@
 name: Deploy
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches:
@@ -11,7 +15,7 @@ on:
 
 env:
   NODE_VERSION: '20.x'
-  REGISTRY: ${{ secrets.REGISTRY || 'ghcr.io' }}
+  REGISTRY: ${{ secrets.REGISTRY || 'docker.io' }}
 
 jobs:
   build-images:
