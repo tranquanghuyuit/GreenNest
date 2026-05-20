@@ -68,7 +68,7 @@ jobs:
           config: auto
 
       - name: Run Gitleaks
-        uses: zricethezav/gitleaks-action@v8
+        uses: zricethezav/gitleaks-action@v2.3.9
         with:
           args: --path=. --redact
 
