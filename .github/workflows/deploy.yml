@@ -101,7 +101,8 @@ jobs:
           for i in {1..30}; do
             if curl -f http://localhost:4000/health && \
                curl -f http://localhost:4002/health && \
-               curl -f http://localhost:4001/health; then
+               curl -f http://localhost:4001/health && \
+               curl -f http://localhost:5173/health; then
               echo "✅ All services are healthy"
               exit 0
             fi
@@ -115,7 +116,7 @@ jobs:
         run: |
           echo "Running smoke tests..."
           curl -f http://localhost:4000/health || exit 1
-          curl -f http://localhost:5173/ || exit 1
+          curl -f http://localhost:5173/health || exit 1
           echo "✅ Smoke tests passed"
 
   deploy-staging:
