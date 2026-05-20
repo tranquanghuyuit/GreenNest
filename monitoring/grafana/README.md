@@ -1,5 +1,9 @@
 # Grafana
 
-Chứa cấu hình Grafana, datasource provisioning và dashboards.
+Chứa cấu hình Grafana, datasource provisioning và dashboard JSON.
 
-Dashboard JSON nên đặt trong `monitoring/grafana/dashboards/`.
+Quy ước hiện tại:
+
+- `provisioning/datasources.yml`: khai báo datasource.
+- `provisioning/dashboards.yml`: khai báo dashboard provider.
+- `greennest-overview.dashboard.json`: dashboard tổng quan của GreenNest.

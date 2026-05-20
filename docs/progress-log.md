@@ -496,7 +496,6 @@ Không ghi chung chung kiểu "đã sửa code". Phải ghi đủ để người
 - `monitoring/prometheus/README.md`
 - `monitoring/grafana/`
 - `monitoring/grafana/README.md`
-- `monitoring/grafana/dashboards/`
 - `monitoring/grafana/provisioning/`
 - `monitoring/alertmanager/`
 - `monitoring/alertmanager/README.md`
@@ -801,6 +800,46 @@ Không ghi chung chung kiểu "đã sửa code". Phải ghi đủ để người
 - File `.env` chứa credential sandbox local và đã được `.gitignore` bỏ qua.
 - Return URL hiện là `http://localhost:5173/payment/vnpay-return`.
 - IPN thật từ VNPAY về máy local chưa test được nếu chưa có public URL như ngrok hoặc domain cloud.
+
+### 2026-05-21 - Bổ sung monitoring Prometheus, Grafana, Jaeger và NeuVector
+
+**Người thực hiện:** Agent
+
+**Nội dung đã làm:**
+- Thêm compose overlay `docker-compose.monitoring.yml` để chạy monitoring local khi cần.
+- Thêm Prometheus để thu thập metric và kiểm tra health endpoint.
+- Thêm Blackbox Exporter để probe frontend, API Gateway và các service `/health`.
+- Thêm Grafana datasource/dashboard để xem trạng thái hệ thống.
+- Thêm Alertmanager để nhận cảnh báo từ Prometheus.
+- Thêm Jaeger UI/collector để chuẩn bị distributed tracing.
+- Thêm cấu hình NeuVector cho Kubernetes bằng Helm values.
+- Thêm bước CI validate compose monitoring overlay.
+
+**File/thư mục đã tạo/sửa:**
+- `deploy/docker-compose/docker-compose.monitoring.yml`
+- `monitoring/prometheus/prometheus.yml`
+- `monitoring/prometheus/blackbox.yml`
+- `monitoring/prometheus/alerts.yml`
+- `monitoring/alertmanager/alertmanager.yml`
+- `monitoring/grafana/provisioning/datasources.yml`
+- `monitoring/grafana/provisioning/dashboards.yml`
+- `monitoring/grafana/greennest-overview.dashboard.json`
+- `deploy/kubernetes/manifests-policy/neuvector/README.md`
+- `deploy/kubernetes/manifests-policy/neuvector/values-dev.yaml`
+- `.github/workflows/ci.yml`
+- `docs/workflow.md`
+- `docs/file-structure.md`
+- `monitoring/README.md`
+
+**Kiểm tra:**
+- Chạy `docker compose -f deploy/docker-compose/docker-compose.yml -f deploy/docker-compose/docker-compose.monitoring.yml config --quiet` thành công.
+- Chạy monitoring stack bằng Docker Compose thành công.
+- Kiểm tra các URL local đều trả `200`: Prometheus `9090`, Grafana `3000`, Jaeger `16686`, Alertmanager `9093`, Blackbox `9115`, cAdvisor `8081`, Node Exporter `9100`.
+- Query Prometheus thấy nhiều target đang `up = 1`, gồm frontend, API Gateway, Product Service, User Service, Payment Service, Grafana, Jaeger và cAdvisor.
+
+**Ghi chú:**
+- NeuVector chưa chạy local vì công cụ này phù hợp với Kubernetes cluster hơn Docker Compose.
+- Grafana local dùng tài khoản mặc định `admin/admin`.
 
 ## 5. Quy Tắc Cho Agent
 

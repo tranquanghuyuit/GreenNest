@@ -1,0 +1,14 @@
+controller:
+  replicas: 1
+
+manager:
+  enabled: true
+  svc:
+    type: NodePort
+
+scanner:
+  replicas: 1
+
+enforcer:
+  enabled: true
+  privileged: true

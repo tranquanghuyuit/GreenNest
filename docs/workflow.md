@@ -1625,5 +1625,130 @@ Trạng thái chưa làm:
 16. Push Docker image lên GHCR.
 17. Kubernetes manifests và Helm chart.
 18. CD deploy Kubernetes.
-19. Monitoring runtime: Prometheus, Grafana, Alertmanager.
+19. Logging runtime: Loki/Promtail hoặc ELK.
+
+## 15. Workflow Monitoring Runtime: Prometheus, Grafana, Alertmanager, Jaeger
+
+Chức năng:
+
+- Theo dõi app local bằng Docker Compose overlay.
+- Kiểm tra service còn sống bằng Prometheus Blackbox Exporter.
+- Xem dashboard bằng Grafana.
+- Chuẩn bị Jaeger để sau này backend gửi distributed tracing.
+- Chuẩn bị NeuVector cho bước Kubernetes runtime security.
+
+Lệnh chạy:
+
+```bash
+docker compose -f deploy/docker-compose/docker-compose.yml -f deploy/docker-compose/docker-compose.monitoring.yml up -d --build
+```
+
+Luồng chính:
+
+**B1. `deploy/docker-compose/docker-compose.monitoring.yml`**
+
+File này thêm các container monitoring vào cùng network `devsecops-shop`.
+
+Các container chính:
+
+```text
+Prometheus   -> thu thập metrics
+Grafana      -> hiển thị dashboard
+Alertmanager -> nhận cảnh báo từ Prometheus
+Blackbox     -> kiểm tra HTTP endpoint còn sống không
+cAdvisor     -> lấy CPU/RAM của container
+Node Exporter -> lấy metric máy/host
+Jaeger       -> xem distributed tracing sau này
+```
+
+Lý do tách file overlay: khi chỉ code app thì chạy compose chính; khi cần quan sát hệ thống thì ghép thêm compose monitoring.
+
+**B2. `monitoring/prometheus/prometheus.yml`**
+
+Prometheus đọc file này để biết cần đi lấy số liệu ở đâu.
+
+Nó scrape:
+
+```text
+prometheus
+grafana
+alertmanager
+cadvisor
+node-exporter
+jaeger
+blackbox-http
+```
+
+Lý do dùng Blackbox: nhiều service chưa expose `/metrics`, nên trước mắt monitor bằng health check HTTP như `/health`, `/api/products`.
+
+**B3. `monitoring/prometheus/blackbox.yml`**
+
+Blackbox Exporter dùng config này để gọi thử HTTP endpoint.
+
+Kết quả probe được Prometheus lưu thành metric như:
+
+```text
+probe_success
+probe_duration_seconds
+```
+
+**B4. `monitoring/prometheus/alerts.yml`**
+
+File này định nghĩa rule cảnh báo.
+
+Ví dụ:
+
+```text
+endpoint down       -> báo critical
+endpoint chậm > 2s  -> báo warning
+container ăn RAM cao -> báo warning
+```
+
+Prometheus gửi alert sang Alertmanager.
+
+**B5. `monitoring/alertmanager/alertmanager.yml`**
+
+Alertmanager nhận alert từ Prometheus và quyết định gửi cảnh báo đi đâu.
+
+Hiện tại receiver là `local-dev-null`, nghĩa là chỉ dùng để test luồng alert local, chưa gửi Slack/email.
+
+**B6. `monitoring/grafana/provisioning/datasources.yml`**
+
+Grafana tự tạo datasource Prometheus và Jaeger khi container start.
+
+Lý do dùng provisioning: clone repo xong chạy compose là có sẵn datasource, không phải cấu hình tay trên UI.
+
+**B7. `monitoring/grafana/greennest-overview.dashboard.json`**
+
+Dashboard tổng quan GreenNest hiển thị:
+
+```text
+endpoint sống/chết
+thời gian phản hồi
+CPU container
+RAM container
+```
+
+**B8. `deploy/kubernetes/manifests-policy/neuvector/`**
+
+NeuVector không chạy trong Docker Compose local. Nó được chuẩn bị cho Kubernetes bằng Helm values.
+
+Lý do: NeuVector cần quyền quan sát pod, image, network policy và runtime trong cluster.
+
+**B9. `.github/workflows/ci.yml`**
+
+CI có bước validate compose monitoring overlay:
+
+```text
+docker compose -f deploy/docker-compose/docker-compose.yml -f deploy/docker-compose/docker-compose.monitoring.yml config
+```
+
+Lý do: bắt lỗi YAML/config monitoring sớm trên GitHub Actions trước khi đem deploy.
+
+## Workflow Sẽ Thêm Sau
+
+16. Notification Service: nhận event và ghi log/gửi thông báo.
+17. Push Docker image lên GHCR.
+18. Kubernetes manifests và Helm chart.
+19. CD deploy Kubernetes.
 20. Logging runtime: Loki/Promtail hoặc ELK.

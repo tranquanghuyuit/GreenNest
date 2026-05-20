@@ -1,0 +1,119 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: devsecops-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../monitoring/prometheus/blackbox.yml:/etc/prometheus/blackbox.yml:ro
+      - ../../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - alertmanager
+      - blackbox-exporter
+      - cadvisor
+      - node-exporter
+      - jaeger
+    networks:
+      - devsecops-shop
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: devsecops-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../monitoring/grafana/provisioning/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ../../monitoring/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ../../monitoring/grafana/greennest-overview.dashboard.json:/var/lib/grafana/dashboards/greennest-overview.dashboard.json:ro
+    depends_on:
+      - prometheus
+      - jaeger
+    networks:
+      - devsecops-shop
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: devsecops-alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "9093:9093"
+    volumes:
+      - ../../monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks:
+      - devsecops-shop
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: devsecops-blackbox-exporter
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    ports:
+      - "9115:9115"
+    volumes:
+      - ../../monitoring/prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - devsecops-shop
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: devsecops-cadvisor
+    privileged: true
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    networks:
+      - devsecops-shop
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: devsecops-node-exporter
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    ports:
+      - "9100:9100"
+    volumes:
+      - /:/host:ro
+    networks:
+      - devsecops-shop
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: devsecops-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+      - "14269:14269"
+    networks:
+      - devsecops-shop
+
+networks:
+  devsecops-shop:
+    name: devsecops-shop
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:

@@ -1,0 +1,31 @@
+groups:
+  - name: greennest-availability
+    rules:
+      - alert: GreenNestEndpointDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Endpoint is down
+          description: "{{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      - alert: GreenNestHighProbeLatency
+        expr: probe_duration_seconds{job="blackbox-http"} > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Endpoint latency is high
+          description: "{{ $labels.instance }} has probe latency above 2 seconds."
+
+  - name: greennest-containers
+    rules:
+      - alert: GreenNestContainerHighMemory
+        expr: container_memory_working_set_bytes{name=~"devsecops-.*"} > 500 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Container memory usage is high
+          description: "{{ $labels.name }} is using more than 500MiB memory."

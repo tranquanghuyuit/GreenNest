@@ -236,6 +236,9 @@ jobs:
       - name: Validate compose file
         run: docker compose -f deploy/docker-compose/docker-compose.yml config
 
+      - name: Validate monitoring compose overlay
+        run: docker compose -f deploy/docker-compose/docker-compose.yml -f deploy/docker-compose/docker-compose.monitoring.yml config
+
   api-smoke-test:
     name: API smoke test
     runs-on: ubuntu-latest

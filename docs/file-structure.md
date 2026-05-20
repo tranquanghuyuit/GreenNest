@@ -23,9 +23,12 @@ my_devops_project/
 
   deploy/
     docker-compose/
+      docker-compose.yml
+      docker-compose.monitoring.yml
     kubernetes/
       manifests/
       manifests-policy/
+        neuvector/
       manifests-monitoring/
       manifests-logging/
     helm-chart/
@@ -43,10 +46,16 @@ my_devops_project/
   healthcheck/
   monitoring/
     prometheus/
+      prometheus.yml
+      blackbox.yml
+      alerts.yml
     grafana/
-      dashboards/
+      greennest-overview.dashboard.json
       provisioning/
+        dashboards.yml
+        datasources.yml
     alertmanager/
+      alertmanager.yml
   graphs/
   security/
     semgrep/
@@ -682,6 +691,7 @@ Compose hiện tại:
 ```text
 deploy/docker-compose/
   docker-compose.yml
+  docker-compose.monitoring.yml
   README.md
 ```
 
@@ -700,6 +710,16 @@ Service đang chạy trong `docker-compose.yml`:
 - `api-gateway`: expose port `4000`, gọi Auth/User/Product/Cart/Order Service qua các biến `*_SERVICE_URL`.
 - `product-service`: expose port `4001`, cung cấp `/health`, `/products`, `/products/:id`, đọc dữ liệu từ `product-db`.
 - `product-db`: PostgreSQL cho Product Service, expose ra host ở port `5433`, tự chạy SQL init trong `apps/product-service/db/init/`.
+
+Compose monitoring overlay:
+
+- `prometheus`: expose port `9090`, scrape target từ `monitoring/prometheus/prometheus.yml`.
+- `grafana`: expose port `3000`, tự load datasource và dashboard từ `monitoring/grafana/`.
+- `alertmanager`: expose port `9093`, nhận alert từ Prometheus.
+- `blackbox-exporter`: expose port `9115`, kiểm tra HTTP endpoint như frontend, API Gateway và `/health` của từng service.
+- `cadvisor`: expose port `8081`, thu metric container.
+- `node-exporter`: expose port `9100`, thu metric host/container runtime.
+- `jaeger`: expose port `16686`, chuẩn bị distributed tracing.
 
 ### deploy/kubernetes/
 
@@ -785,10 +805,16 @@ Chứa cấu hình monitoring runtime cho hệ thống.
 Các thư mục con hiện tại:
 
 - `monitoring/prometheus/`: cấu hình Prometheus, scrape config và alert rules.
+- `monitoring/prometheus/prometheus.yml`: khai báo target Prometheus scrape.
+- `monitoring/prometheus/blackbox.yml`: cấu hình HTTP probe cho Blackbox Exporter.
+- `monitoring/prometheus/alerts.yml`: alert rule local cho endpoint down/latency cao/container memory cao.
 - `monitoring/grafana/`: cấu hình Grafana.
-- `monitoring/grafana/dashboards/`: dashboard JSON.
+- `monitoring/grafana/greennest-overview.dashboard.json`: dashboard tổng quan GreenNest.
 - `monitoring/grafana/provisioning/`: datasource/dashboard provisioning.
+- `monitoring/grafana/provisioning/datasources.yml`: tự tạo Prometheus và Jaeger datasource.
+- `monitoring/grafana/provisioning/dashboards.yml`: tự load dashboard JSON.
 - `monitoring/alertmanager/`: cấu hình cảnh báo.
+- `monitoring/alertmanager/alertmanager.yml`: route alert local, chưa gửi email/Slack.
 
 Đây là nơi chính để đặt cấu hình Prometheus, Grafana và Alertmanager.
 
@@ -870,9 +896,10 @@ Chứa GitHub Actions workflows:
 - build Docker image cho từng service.
 - scan Docker image bằng Trivy ở chế độ report-only.
 - validate Docker Compose config.
+- validate Docker Compose monitoring overlay.
 - chạy API smoke test bằng Docker Compose.
 
-Ghi chú: hiện chưa push image lên GHCR, chưa CD Kubernetes, chưa cấu hình monitoring runtime trong CI.
+Ghi chú: hiện chưa push image lên GHCR, chưa CD Kubernetes. Monitoring runtime đã có compose overlay và CI validate config, nhưng chưa chạy monitoring stack trong CI.
 
 ### Test trong từng app
 
