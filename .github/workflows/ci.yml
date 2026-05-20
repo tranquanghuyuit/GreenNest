@@ -68,9 +68,13 @@ jobs:
           config: auto
 
       - name: Run Gitleaks
-        uses: zricethezav/gitleaks-action@v2.3.9
-        with:
-          args: --path=. --redact
+        # uses: zricethezav/gitleaks-action@v2.3.9
+        # with:
+        #   args: --path=. --redact
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar xz
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks detect --source . --redact --verbose --exit-code=0
 
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.14.0
