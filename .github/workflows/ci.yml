@@ -18,6 +18,7 @@ permissions:
 
 env:
   NODE_VERSION: "22.12.0"
+  OWASP_DEPENDENCY_CHECK_VERSION: "12.2.2"
 
 jobs:
   codeql-analysis:
@@ -78,32 +79,40 @@ jobs:
   owasp-dependency-check:
     name: OWASP Dependency-Check
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     continue-on-error: true
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Prepare OWASP Dependency-Check cache key
+        id: dependency-check-cache
+        run: echo "week=$(date -u +'%G-%V')" >> "$GITHUB_OUTPUT"
+
       - name: Cache OWASP Dependency-Check data
         uses: actions/cache@v4
         with:
           path: dependency-check-data
-          key: dependency-check-data-${{ runner.os }}
+          key: dependency-check-data-${{ runner.os }}-${{ steps.dependency-check-cache.outputs.week }}
           restore-keys: |
-            dependency-check-data-
+            dependency-check-data-${{ runner.os }}-
 
       - name: Run OWASP Dependency-Check report
-        timeout-minutes: 18
+        timeout-minutes: 55
         run: |
           mkdir -p dependency-check-report dependency-check-data
           docker run --rm \
             -v "${{ github.workspace }}:/src" \
             -v "${{ github.workspace }}/dependency-check-report:/report" \
             -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
-            owasp/dependency-check:12.2.2 \
+            owasp/dependency-check:${{ env.OWASP_DEPENDENCY_CHECK_VERSION }} \
             --project "GreenNest" \
             --scan /src/apps \
+            --exclude "/src/apps/**/dist/**" \
+            --exclude "/src/apps/**/node_modules/**" \
+            --data /usr/share/dependency-check/data \
+            --nvdApiDelay 6000 \
             --format HTML \
             --format JSON \
             --out /report \
