@@ -19,6 +19,7 @@ permissions:
 env:
   NODE_VERSION: "22.12.0"
   OWASP_DEPENDENCY_CHECK_VERSION: "12.2.2"
+  OWASP_DEPENDENCY_CHECK_CACHE_VERSION: "v2"
 
 jobs:
   codeql-analysis:
@@ -94,29 +95,43 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dependency-check-data
-          key: dependency-check-data-${{ runner.os }}-${{ steps.dependency-check-cache.outputs.week }}
+          key: dependency-check-data-${{ runner.os }}-${{ env.OWASP_DEPENDENCY_CHECK_CACHE_VERSION }}-${{ steps.dependency-check-cache.outputs.week }}
           restore-keys: |
+            dependency-check-data-${{ runner.os }}-${{ env.OWASP_DEPENDENCY_CHECK_CACHE_VERSION }}-
             dependency-check-data-${{ runner.os }}-
+
+      - name: Clean stale OWASP database locks
+        run: |
+          mkdir -p dependency-check-data
+          find dependency-check-data -type f \( -name "*.lock.db" -o -name "*.trace.db" -o -name "*.lck" -o -name "*.lock" \) -print -delete
 
       - name: Run OWASP Dependency-Check report
         timeout-minutes: 55
         run: |
           mkdir -p dependency-check-report dependency-check-data
-          docker run --rm \
-            -v "${{ github.workspace }}:/src" \
-            -v "${{ github.workspace }}/dependency-check-report:/report" \
-            -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
-            owasp/dependency-check:${{ env.OWASP_DEPENDENCY_CHECK_VERSION }} \
-            --project "GreenNest" \
-            --scan /src/apps \
-            --exclude "/src/apps/**/dist/**" \
-            --exclude "/src/apps/**/node_modules/**" \
-            --data /usr/share/dependency-check/data \
-            --nvdApiDelay 6000 \
-            --format HTML \
-            --format JSON \
-            --out /report \
-            --failOnCVSS 11
+          run_dependency_check() {
+            docker run --rm \
+              -v "${{ github.workspace }}:/src" \
+              -v "${{ github.workspace }}/dependency-check-report:/report" \
+              -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
+              owasp/dependency-check:${{ env.OWASP_DEPENDENCY_CHECK_VERSION }} \
+              --project "GreenNest" \
+              --scan /src/apps \
+              --exclude "/src/apps/**/dist/**" \
+              --exclude "/src/apps/**/node_modules/**" \
+              --data /usr/share/dependency-check/data \
+              --nvdApiDelay 6000 \
+              --format HTML \
+              --format JSON \
+              --out /report \
+              --failOnCVSS 11
+          }
+
+          if ! run_dependency_check; then
+            echo "::warning::OWASP Dependency-Check failed, clearing local cached database and retrying once."
+            rm -rf dependency-check-data/*
+            run_dependency_check
+          fi
 
       - name: Upload OWASP Dependency-Check report
         if: always()
