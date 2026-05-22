@@ -31,6 +31,7 @@ File chính:
 
 ```text
 deploy/kubernetes/argocd/application-dev.yaml
+deploy/kubernetes/argocd/application-monitoring-dev.yaml
 ```
 
 File này khai báo:
@@ -40,6 +41,14 @@ File này khai báo:
 - path manifest: `deploy/kubernetes/manifests`
 - namespace deploy app: `greennest`
 - sync tự động: bật `prune` và `selfHeal`
+
+Application monitoring dùng path:
+
+```text
+deploy/kubernetes/manifests-monitoring
+```
+
+và cũng deploy vào namespace `greennest`.
 
 ## Cài Argo CD local
 

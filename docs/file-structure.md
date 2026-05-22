@@ -27,11 +27,17 @@ my_devops_project/
       docker-compose.monitoring.yml
     kubernetes/
       manifests/
-      argocd/
-      manifests-policy/
-        neuvector/
-      manifests-monitoring/
-      manifests-logging/
+    argocd/
+    manifests-policy/
+      neuvector/
+    manifests-monitoring/
+      kustomization.yaml
+      prometheus.yaml
+      alertmanager.yaml
+      blackbox-exporter.yaml
+      grafana.yaml
+      jaeger.yaml
+    manifests-logging/
     helm-chart/
       templates/
 
@@ -901,6 +907,10 @@ Cấu trúc hiện tại có thêm:
 scripts/
   install-argocd.ps1
   install-argocd.sh
+  install-k8s-monitoring.ps1
+  install-k8s-monitoring.sh
+  install-neuvector.ps1
+  install-neuvector.sh
   install-nginx-ingress.ps1
   install-nginx-ingress.sh
   ci/
@@ -909,6 +919,10 @@ scripts/
 
 - `scripts/install-argocd.ps1`: cài Argo CD, chờ pod sẵn sàng và apply GreenNest Application bằng PowerShell.
 - `scripts/install-argocd.sh`: cài Argo CD, chờ pod sẵn sàng và apply GreenNest Application bằng Bash.
+- `scripts/install-k8s-monitoring.ps1`: cài Prometheus, Grafana, Alertmanager, Blackbox Exporter và Jaeger vào namespace `greennest`.
+- `scripts/install-k8s-monitoring.sh`: bản Bash của script cài Kubernetes monitoring.
+- `scripts/install-neuvector.ps1`: cài NeuVector bằng Helm vào namespace `greennest`.
+- `scripts/install-neuvector.sh`: bản Bash của script cài NeuVector.
 - `scripts/install-nginx-ingress.ps1`: cài NGINX Ingress Controller bằng PowerShell.
 - `scripts/install-nginx-ingress.sh`: cài NGINX Ingress Controller bằng Bash.
 - `scripts/ci/smoke-test.sh`: script CI chạy sau khi Docker Compose stack đã lên, dùng `curl` để kiểm tra API Gateway, Product API, frontend Nginx và proxy `/api` của frontend.

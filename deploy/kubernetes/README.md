@@ -178,3 +178,57 @@ https://localhost:8081
 - Khi làm CD thật, cần push image lên GHCR rồi đổi image thành `ghcr.io/...`.
 - `dev-secrets.yaml` chỉ dùng cho môi trường dev/demo, không dùng làm secret production.
 - PostgreSQL trong manifest là StatefulSet dev. Production nên dùng managed database hoặc PostgreSQL operator.
+
+## Monitoring Kubernetes
+
+Monitoring Kubernetes của GreenNest chạy trong namespace `greennest`.
+
+Manifest nằm ở:
+
+```text
+deploy/kubernetes/manifests-monitoring
+```
+
+Argo CD Application tương ứng:
+
+```text
+deploy/kubernetes/argocd/application-monitoring-dev.yaml
+```
+
+Cài Prometheus, Grafana, Alertmanager, Blackbox Exporter và Jaeger:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-k8s-monitoring.ps1
+```
+
+Hoặc:
+
+```bash
+bash scripts/install-k8s-monitoring.sh
+```
+
+Mở giao diện:
+
+```powershell
+kubectl port-forward svc/grafana -n greennest 3000:3000
+kubectl port-forward svc/prometheus -n greennest 9090:9090
+kubectl port-forward svc/jaeger -n greennest 16686:16686
+```
+
+URL:
+
+```text
+Grafana:    http://localhost:3000    admin/admin
+Prometheus: http://localhost:9090
+Jaeger:     http://localhost:16686
+```
+
+Prometheus hiện dùng Blackbox Exporter để probe frontend, API Gateway và `/health` của từng service.
+
+Cài NeuVector runtime security bằng Helm:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-neuvector.ps1
+```
+
+NeuVector nặng hơn các tool monitoring khác. Nếu Docker Desktop thiếu RAM, nên demo Prometheus/Grafana/Jaeger trước.

@@ -322,6 +322,14 @@ jobs:
             registry.k8s.io/kustomize/kustomize:v5.7.1 \
             build deploy/kubernetes/manifests > /tmp/greennest-k8s.yaml
 
+      - name: Validate Kubernetes monitoring manifests
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            registry.k8s.io/kustomize/kustomize:v5.7.1 \
+            build deploy/kubernetes/manifests-monitoring > /tmp/greennest-monitoring-k8s.yaml
+
   api-smoke-test:
     name: API smoke test
     runs-on: ubuntu-latest

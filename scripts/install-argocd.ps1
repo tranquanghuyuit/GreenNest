@@ -22,6 +22,7 @@ kubectl wait `
 
 Write-Host "Applying GreenNest Argo CD Application..."
 kubectl apply -f deploy/kubernetes/argocd/application-dev.yaml
+kubectl apply -f deploy/kubernetes/argocd/application-monitoring-dev.yaml
 
 Write-Host ""
 Write-Host "Argo CD is installed."

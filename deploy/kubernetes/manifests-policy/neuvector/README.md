@@ -1,25 +1,48 @@
 # NeuVector
 
-NeuVector dùng để kiểm soát bảo mật runtime trong Kubernetes: quét image, phát hiện CVE, quan sát network giữa pod, policy và runtime threat.
+NeuVector dùng để kiểm soát bảo mật runtime trong Kubernetes:
 
-Trong project này, NeuVector không chạy bằng Docker Compose local. Nó nên được cài vào Kubernetes cluster bằng Helm sau khi có cluster dev/staging/production.
+- quan sát network giữa pod.
+- quét image/container runtime.
+- phát hiện CVE.
+- tạo policy bảo mật cho workload.
+- hỗ trợ demo phần runtime security trong DevSecOps.
 
-## Cài thử trên Kubernetes
+Trong GreenNest, NeuVector được cài bằng Helm vào namespace `greennest` để đúng yêu cầu demo namespace của dự án.
+
+## Cài bằng script
+
+PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-neuvector.ps1
+```
+
+Bash:
+
+```bash
+bash scripts/install-neuvector.sh
+```
+
+## Cài thủ công
 
 ```bash
 helm repo add neuvector https://neuvector.github.io/neuvector-helm/
 helm repo update
-kubectl create namespace cattle-neuvector-system
+
 helm upgrade --install neuvector neuvector/core \
-  --namespace cattle-neuvector-system \
+  --namespace greennest \
+  --create-namespace \
   -f deploy/kubernetes/manifests-policy/neuvector/values-dev.yaml
 ```
 
-Sau khi cài, kiểm tra:
+Kiểm tra:
 
 ```bash
-kubectl get pods -n cattle-neuvector-system
-kubectl get svc -n cattle-neuvector-system
+kubectl get pods -n greennest | grep neuvector
+kubectl get svc -n greennest | grep neuvector
 ```
 
-NeuVector UI sẽ được expose bằng service của manager. Với môi trường local như Minikube hoặc Kind, có thể cần `kubectl port-forward` hoặc đổi service type theo cluster đang dùng.
+## Lưu ý
+
+NeuVector nặng hơn Prometheus/Grafana/Jaeger và thường cần cluster đủ RAM/CPU. Nếu Docker Desktop Kubernetes yếu, nên demo Prometheus/Grafana/Jaeger trước, sau đó mới bật NeuVector.

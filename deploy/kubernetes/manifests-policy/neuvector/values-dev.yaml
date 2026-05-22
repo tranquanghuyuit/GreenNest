@@ -4,7 +4,7 @@ controller:
 manager:
   enabled: true
   svc:
-    type: NodePort
+    type: ClusterIP
 
 scanner:
   replicas: 1
