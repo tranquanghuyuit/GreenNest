@@ -27,12 +27,13 @@ bash scripts/install-neuvector.sh
 ## Cài thủ công
 
 ```bash
-helm repo add neuvector https://neuvector.github.io/neuvector-helm/
+helm repo add neuvector https://neuvector.github.io/neuvector-helm/ --force-update
 helm repo update
 
 helm upgrade --install neuvector neuvector/core \
   --namespace greennest \
   --create-namespace \
+  --server-side=false \
   -f deploy/kubernetes/manifests-policy/neuvector/values-dev.yaml
 ```
 
@@ -42,6 +43,14 @@ Kiểm tra:
 kubectl get pods -n greennest | grep neuvector
 kubectl get svc -n greennest | grep neuvector
 ```
+
+Mở Web UI:
+
+```bash
+kubectl port-forward svc/neuvector-service-webui -n greennest 8443:8443
+```
+
+Sau đó vào `https://localhost:8443`.
 
 ## Lưu ý
 

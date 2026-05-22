@@ -6,9 +6,11 @@ manager:
   svc:
     type: ClusterIP
 
-scanner:
-  replicas: 1
+cve:
+  scanner:
+    replicas: 1
 
 enforcer:
   enabled: true
-  privileged: true
+  securityContext:
+    privileged: true
