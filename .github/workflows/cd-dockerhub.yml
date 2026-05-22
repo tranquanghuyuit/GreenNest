@@ -23,11 +23,34 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main')
     outputs:
-      enabled: ${{ steps.check.outputs.enabled }}
+      enabled: ${{ steps.check.outputs.enabled || steps.stale.outputs.enabled }}
 
     steps:
+      - name: Check latest main commit
+        id: latest
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_run" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LATEST_MAIN_SHA="$(git ls-remote https://github.com/${{ github.repository }} refs/heads/main | awk '{print $1}')"
+          echo "source_sha=$SOURCE_SHA"
+          echo "latest_main_sha=$LATEST_MAIN_SHA"
+
+          if [ "$SOURCE_SHA" != "$LATEST_MAIN_SHA" ]; then
+            echo "::warning::CD skipped because this CI run is not the latest main commit."
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "is_latest=true" >> "$GITHUB_OUTPUT"
+
       - name: Check Docker Hub secrets
         id: check
+        if: steps.latest.outputs.is_latest == 'true'
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -39,6 +62,11 @@ jobs:
           fi
 
           echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Disable stale CD run
+        id: stale
+        if: steps.latest.outputs.is_latest != 'true'
+        run: echo "enabled=false" >> "$GITHUB_OUTPUT"
 
   dockerhub-publish:
     name: Build and push ${{ matrix.image }}
