@@ -1,14 +1,17 @@
+import "./monitoring/tracing.js";
 import cors from "cors";
 import express from "express";
 import { config } from "./config.js";
 import { checkDatabaseConnection } from "./db/pool.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { metricsHandler, metricsMiddleware } from "./monitoring/metrics.js";
 import { authRouter } from "./routes/auth.routes.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
 
 app.get("/health", async (_request, response) => {
   try {
@@ -26,6 +29,8 @@ app.get("/health", async (_request, response) => {
     });
   }
 });
+
+app.get("/metrics", metricsHandler);
 
 app.use("/auth", authRouter);
 app.use(errorHandler);

@@ -42,6 +42,18 @@ data:
           - targets:
               - jaeger:14269
 
+      - job_name: greennest-services
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - api-gateway:4000
+              - product-service:4001
+              - auth-service:4002
+              - user-service:4003
+              - cart-service:4004
+              - order-service:4005
+              - payment-service:4006
+
       - job_name: greennest-http-probes
         metrics_path: /probe
         params:
@@ -89,6 +101,33 @@ data:
             annotations:
               summary: "GreenNest endpoint is slow"
               description: "{{ $labels.instance }} is responding slower than 2 seconds."
+
+          - alert: GreenNestMetricsTargetDown
+            expr: up{job="greennest-services"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "GreenNest service metrics target is down"
+              description: "Prometheus cannot scrape /metrics from {{ $labels.instance }}."
+
+          - alert: GreenNestHighServerErrorRate
+            expr: sum by (instance, service) (rate(http_requests_total{job="greennest-services",status_code=~"5.."}[5m])) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "GreenNest service has 5xx responses"
+              description: "{{ $labels.service }} on {{ $labels.instance }} is returning server errors."
+
+          - alert: GreenNestHighP95Latency
+            expr: histogram_quantile(0.95, sum by (le, instance, service) (rate(http_request_duration_seconds_bucket{job="greennest-services"}[5m]))) > 1
+            for: 3m
+            labels:
+              severity: warning
+            annotations:
+              summary: "GreenNest service p95 latency is high"
+              description: "{{ $labels.service }} on {{ $labels.instance }} has p95 latency above 1 second."
 ---
 apiVersion: apps/v1
 kind: Deployment

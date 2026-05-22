@@ -1,4 +1,39 @@
 services:
+  api-gateway:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+  auth-service:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+  user-service:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+  product-service:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+  cart-service:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+  order-service:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+  payment-service:
+    environment:
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: devsecops-prometheus

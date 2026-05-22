@@ -12,6 +12,8 @@ data:
   CART_SERVICE_URL: http://cart-service:4004
   ORDER_SERVICE_URL: http://order-service:4005
   PAYMENT_SERVICE_URL: http://payment-service:4006
+  OTEL_TRACING_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
   GOOGLE_REDIRECT_URI: http://greennest.local/auth/google/callback
   VNPAY_PAYMENT_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
   VNPAY_HASH_ALGORITHM: hmac-sha512

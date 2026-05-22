@@ -43,6 +43,16 @@ spec:
                   key: NODE_ENV
             - name: PORT
               value: "4001"
+            - name: OTEL_TRACING_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: OTEL_TRACING_ENABLED
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
             - name: DATABASE_URL
               value: postgresql://product_user:product_password@product-db:5432/product_db
             - name: JWT_SECRET

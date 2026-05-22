@@ -19,6 +19,33 @@ groups:
           summary: Endpoint latency is high
           description: "{{ $labels.instance }} has probe latency above 2 seconds."
 
+      - alert: GreenNestMetricsTargetDown
+        expr: up{job="greennest-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Service metrics target is down
+          description: "Prometheus cannot scrape /metrics from {{ $labels.instance }}."
+
+      - alert: GreenNestHighServerErrorRate
+        expr: sum by (instance, service) (rate(http_requests_total{job="greennest-services",status_code=~"5.."}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Service has 5xx responses
+          description: "{{ $labels.service }} on {{ $labels.instance }} is returning server errors."
+
+      - alert: GreenNestHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le, instance, service) (rate(http_request_duration_seconds_bucket{job="greennest-services"}[5m]))) > 1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: Service p95 latency is high
+          description: "{{ $labels.service }} on {{ $labels.instance }} has p95 latency above 1 second."
+
   - name: greennest-containers
     rules:
       - alert: GreenNestContainerHighMemory

@@ -43,6 +43,18 @@ scrape_configs:
       - targets:
           - jaeger:14269
 
+  - job_name: greennest-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api-gateway:4000
+          - product-service:4001
+          - auth-service:4002
+          - user-service:4003
+          - cart-service:4004
+          - order-service:4005
+          - payment-service:4006
+
   - job_name: blackbox-http
     metrics_path: /probe
     params:
