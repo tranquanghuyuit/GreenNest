@@ -107,16 +107,16 @@ jobs:
           find dependency-check-data -type f \( -name "*.lock.db" -o -name "*.trace.db" -o -name "*.lck" -o -name "*.lock" \) -print -delete
 
       - name: Update OWASP Dependency-Check data
-        timeout-minutes: 30
+        timeout-minutes: 10
         continue-on-error: true
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mkdir -p dependency-check-data
-          EXTRA_ARGS=(--nvdApiDelay 8000)
 
-          if [ -n "$NVD_API_KEY" ]; then
-            EXTRA_ARGS=(--nvdApiKey "$NVD_API_KEY" --nvdApiDelay 3500)
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "::warning::NVD_API_KEY is missing. Skipping OWASP database update and using cached data if available."
+            exit 0
           fi
 
           docker run --rm \
@@ -125,7 +125,8 @@ jobs:
             --updateonly \
             --data /usr/share/dependency-check/data \
             --nvdValidForHours 168 \
-            "${EXTRA_ARGS[@]}"
+            --nvdApiKey "$NVD_API_KEY" \
+            --nvdApiDelay 3500
 
       - name: Run OWASP Dependency-Check report from local data
         timeout-minutes: 15
