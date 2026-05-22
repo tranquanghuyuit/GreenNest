@@ -879,6 +879,7 @@ Hiện tại gồm:
 - `database.md`
 - `workflow.md`
 - `devsecops-pipeline.md`
+- `dockerhub-cd.md`
 - `file-structure.md`
 - `threat-model.md`
 - `progress-log.md`
@@ -898,10 +899,18 @@ Cấu trúc hiện tại có thêm:
 
 ```text
 scripts/
+  install-argocd.ps1
+  install-argocd.sh
+  install-nginx-ingress.ps1
+  install-nginx-ingress.sh
   ci/
     smoke-test.sh
 ```
 
+- `scripts/install-argocd.ps1`: cài Argo CD, chờ pod sẵn sàng và apply GreenNest Application bằng PowerShell.
+- `scripts/install-argocd.sh`: cài Argo CD, chờ pod sẵn sàng và apply GreenNest Application bằng Bash.
+- `scripts/install-nginx-ingress.ps1`: cài NGINX Ingress Controller bằng PowerShell.
+- `scripts/install-nginx-ingress.sh`: cài NGINX Ingress Controller bằng Bash.
 - `scripts/ci/smoke-test.sh`: script CI chạy sau khi Docker Compose stack đã lên, dùng `curl` để kiểm tra API Gateway, Product API, frontend Nginx và proxy `/api` của frontend.
 
 ## 14. .github/workflows/
@@ -909,6 +918,7 @@ scripts/
 Chứa GitHub Actions workflows:
 
 - `ci.yml`
+- `cd-dockerhub.yml`
 - `security.yml`
 - `deploy-dev.yml`
 - `deploy-staging.yml`
@@ -927,6 +937,15 @@ Chứa GitHub Actions workflows:
 - validate Docker Compose config.
 - validate Docker Compose monitoring overlay.
 - chạy API smoke test bằng Docker Compose.
+
+`cd-dockerhub.yml` là pipeline CD dùng Docker Hub:
+
+- chỉ chạy khi `CI` xanh trên branch `main` hoặc chạy tay bằng `workflow_dispatch`.
+- build image cho từng service.
+- đăng nhập Docker Hub bằng GitHub Secrets `DOCKERHUB_USERNAME` và `DOCKERHUB_TOKEN`.
+- push image lên Docker Hub với tag commit SHA và `latest`.
+- cập nhật image tag trong Kubernetes manifests.
+- commit manifest mới lên `main` với `[skip ci]` để Argo CD tự sync.
 
 Ghi chú: hiện chưa push image lên GHCR, chưa CD Kubernetes. Monitoring runtime đã có compose overlay và CI validate config, nhưng chưa chạy monitoring stack trong CI.
 
