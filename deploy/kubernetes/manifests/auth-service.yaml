@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: auth-service
-          image: docker.io/huydeptraivl2005/greennest-auth-service:49867cf53fa7
+          image: docker.io/huydeptraivl2005/greennest-auth-service:0104a0d48830
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
