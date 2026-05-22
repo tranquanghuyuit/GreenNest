@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: user-service
-          image: docker.io/huydeptraivl2005/greennest-user-service:caec1d6cb303
+          image: docker.io/huydeptraivl2005/greennest-user-service:49867cf53fa7
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
