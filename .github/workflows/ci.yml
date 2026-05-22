@@ -19,7 +19,7 @@ permissions:
 env:
   NODE_VERSION: "22.12.0"
   OWASP_DEPENDENCY_CHECK_VERSION: "12.2.2"
-  OWASP_DEPENDENCY_CHECK_CACHE_VERSION: "v2"
+  OWASP_DEPENDENCY_CHECK_CACHE_VERSION: "v3"
 
 jobs:
   codeql-analysis:
@@ -91,8 +91,9 @@ jobs:
         id: dependency-check-cache
         run: echo "week=$(date -u +'%G-%V')" >> "$GITHUB_OUTPUT"
 
-      - name: Cache OWASP Dependency-Check data
-        uses: actions/cache@v4
+      - name: Restore OWASP Dependency-Check data cache
+        id: dependency-check-cache-restore
+        uses: actions/cache/restore@v4
         with:
           path: dependency-check-data
           key: dependency-check-data-${{ runner.os }}-${{ env.OWASP_DEPENDENCY_CHECK_CACHE_VERSION }}-${{ steps.dependency-check-cache.outputs.week }}
@@ -105,33 +106,82 @@ jobs:
           mkdir -p dependency-check-data
           find dependency-check-data -type f \( -name "*.lock.db" -o -name "*.trace.db" -o -name "*.lck" -o -name "*.lock" \) -print -delete
 
-      - name: Run OWASP Dependency-Check report
-        timeout-minutes: 55
+      - name: Update OWASP Dependency-Check data
+        timeout-minutes: 30
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          mkdir -p dependency-check-data
+          EXTRA_ARGS=(--nvdApiDelay 8000)
+
+          if [ -n "$NVD_API_KEY" ]; then
+            EXTRA_ARGS=(--nvdApiKey "$NVD_API_KEY" --nvdApiDelay 3500)
+          fi
+
+          docker run --rm \
+            -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
+            owasp/dependency-check:${{ env.OWASP_DEPENDENCY_CHECK_VERSION }} \
+            --updateonly \
+            --data /usr/share/dependency-check/data \
+            --nvdValidForHours 168 \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Run OWASP Dependency-Check report from local data
+        timeout-minutes: 15
         run: |
           mkdir -p dependency-check-report dependency-check-data
-          run_dependency_check() {
-            docker run --rm \
-              -v "${{ github.workspace }}:/src" \
-              -v "${{ github.workspace }}/dependency-check-report:/report" \
-              -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
-              owasp/dependency-check:${{ env.OWASP_DEPENDENCY_CHECK_VERSION }} \
-              --project "GreenNest" \
-              --scan /src/apps \
-              --exclude "/src/apps/**/dist/**" \
-              --exclude "/src/apps/**/node_modules/**" \
-              --data /usr/share/dependency-check/data \
-              --nvdApiDelay 6000 \
-              --format HTML \
-              --format JSON \
-              --out /report \
-              --failOnCVSS 11
-          }
 
-          if ! run_dependency_check; then
-            echo "::warning::OWASP Dependency-Check failed, clearing local cached database and retrying once."
-            rm -rf dependency-check-data/*
-            run_dependency_check
+          if [ ! -f dependency-check-data/odc.mv.db ]; then
+            cat > dependency-check-report/README.md <<'EOF'
+          OWASP Dependency-Check was skipped because the local vulnerability database was not ready.
+
+          The CI pipeline still runs Semgrep, CodeQL, Trivy repo scan, npm audit, Docker build, image scan, Compose validation, Kubernetes manifest validation, and smoke tests.
+
+          To make this step faster and more reliable, add an NVD API key as the repository secret `NVD_API_KEY`.
+          EOF
+            echo "::warning::OWASP Dependency-Check database is missing, so the report step was skipped."
+            exit 0
           fi
+
+          if ! docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -v "${{ github.workspace }}/dependency-check-report:/report" \
+            -v "${{ github.workspace }}/dependency-check-data:/usr/share/dependency-check/data" \
+            owasp/dependency-check:${{ env.OWASP_DEPENDENCY_CHECK_VERSION }} \
+            --project "GreenNest" \
+            --scan /src/apps \
+            --exclude "/src/apps/**/dist/**" \
+            --exclude "/src/apps/**/node_modules/**" \
+            --data /usr/share/dependency-check/data \
+            --noupdate \
+            --format HTML \
+            --format JSON \
+            --out /report \
+            --failOnCVSS 11; then
+            cat > dependency-check-report/README.md <<'EOF'
+          OWASP Dependency-Check could not generate a report from the cached database in this run.
+
+          This job is kept non-blocking because the NVD data source can be slow or locked on GitHub-hosted runners. Other security gates still run in CI.
+          EOF
+            echo "::warning::OWASP Dependency-Check scan failed, but CI will continue."
+          fi
+
+      - name: Check OWASP Dependency-Check cache status
+        id: dependency-check-cache-status
+        run: |
+          if [ -f dependency-check-data/odc.mv.db ]; then
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save OWASP Dependency-Check data cache
+        if: steps.dependency-check-cache-status.outputs.has_db == 'true' && steps.dependency-check-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: dependency-check-data
+          key: dependency-check-data-${{ runner.os }}-${{ env.OWASP_DEPENDENCY_CHECK_CACHE_VERSION }}-${{ steps.dependency-check-cache.outputs.week }}
 
       - name: Upload OWASP Dependency-Check report
         if: always()
@@ -262,6 +312,14 @@ jobs:
 
       - name: Validate monitoring compose overlay
         run: docker compose -f deploy/docker-compose/docker-compose.yml -f deploy/docker-compose/docker-compose.monitoring.yml config
+
+      - name: Validate Kubernetes manifests
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            registry.k8s.io/kustomize/kustomize:v5.7.1 \
+            build deploy/kubernetes/manifests > /tmp/greennest-k8s.yaml
 
   api-smoke-test:
     name: API smoke test

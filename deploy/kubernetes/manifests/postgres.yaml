@@ -1,0 +1,497 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: auth-db
+  labels:
+    app.kubernetes.io/name: auth-db
+    app.kubernetes.io/component: database
+spec:
+  serviceName: auth-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auth-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth-db
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: auth_db
+            - name: POSTGRES_USER
+              value: auth_user
+            - name: POSTGRES_PASSWORD
+              value: auth_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "auth_user", "-d", "auth_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "auth_user", "-d", "auth_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init-sql
+          configMap:
+            name: auth-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  labels:
+    app.kubernetes.io/name: auth-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: auth-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: user-db
+  labels:
+    app.kubernetes.io/name: user-db
+    app.kubernetes.io/component: database
+spec:
+  serviceName: user-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: user-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: user-db
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: user_db
+            - name: POSTGRES_USER
+              value: user_user
+            - name: POSTGRES_PASSWORD
+              value: user_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "user_user", "-d", "user_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "user_user", "-d", "user_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init-sql
+          configMap:
+            name: user-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-db
+  labels:
+    app.kubernetes.io/name: user-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: user-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: product-db
+  labels:
+    app.kubernetes.io/name: product-db
+    app.kubernetes.io/component: database
+spec:
+  serviceName: product-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: product-db
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: product_db
+            - name: POSTGRES_USER
+              value: product_user
+            - name: POSTGRES_PASSWORD
+              value: product_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "product_user", "-d", "product_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "product_user", "-d", "product_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init-sql
+          configMap:
+            name: product-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-db
+  labels:
+    app.kubernetes.io/name: product-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: product-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cart-db
+  labels:
+    app.kubernetes.io/name: cart-db
+    app.kubernetes.io/component: database
+spec:
+  serviceName: cart-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cart-db
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: cart_db
+            - name: POSTGRES_USER
+              value: cart_user
+            - name: POSTGRES_PASSWORD
+              value: cart_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "cart_user", "-d", "cart_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "cart_user", "-d", "cart_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init-sql
+          configMap:
+            name: cart-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-db
+  labels:
+    app.kubernetes.io/name: cart-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cart-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: order-db
+  labels:
+    app.kubernetes.io/name: order-db
+    app.kubernetes.io/component: database
+spec:
+  serviceName: order-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: order-db
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: order_db
+            - name: POSTGRES_USER
+              value: order_user
+            - name: POSTGRES_PASSWORD
+              value: order_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "order_user", "-d", "order_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "order_user", "-d", "order_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init-sql
+          configMap:
+            name: order-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-db
+  labels:
+    app.kubernetes.io/name: order-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: order-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: payment-db
+  labels:
+    app.kubernetes.io/name: payment-db
+    app.kubernetes.io/component: database
+spec:
+  serviceName: payment-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payment-db
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: payment_db
+            - name: POSTGRES_USER
+              value: payment_user
+            - name: POSTGRES_PASSWORD
+              value: payment_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "payment_user", "-d", "payment_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "payment_user", "-d", "payment_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init-sql
+          configMap:
+            name: payment-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-db
+  labels:
+    app.kubernetes.io/name: payment-db
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: payment-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

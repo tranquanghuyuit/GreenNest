@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: greennest
+
+resources:
+  - namespace.yaml
+  - app-config.yaml
+  - dev-secrets.yaml
+  - postgres.yaml
+  - auth-service.yaml
+  - user-service.yaml
+  - product-service.yaml
+  - cart-service.yaml
+  - payment-service.yaml
+  - order-service.yaml
+  - api-gateway.yaml
+  - frontend.yaml
+  - ingress.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: auth-db-init
+    files:
+      - db-init/auth/001-create-schema.sql
+  - name: user-db-init
+    files:
+      - db-init/user/001-create-schema.sql
+      - db-init/user/002-user-favorites.sql
+  - name: product-db-init
+    files:
+      - db-init/product/001-create-schema.sql
+      - db-init/product/002-product-image-reviews.sql
+      - db-init/product/002-seed-data.sql
+      - db-init/product/003-product-deals.sql
+  - name: cart-db-init
+    files:
+      - db-init/cart/001-create-schema.sql
+  - name: order-db-init
+    files:
+      - db-init/order/001-create-schema.sql
+  - name: payment-db-init
+    files:
+      - db-init/payment/001-create-schema.sql

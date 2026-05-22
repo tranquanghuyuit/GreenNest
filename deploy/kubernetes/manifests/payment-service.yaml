@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payment-service
+        app.kubernetes.io/component: backend
+    spec:
+      containers:
+        - name: payment-service
+          image: devsecops-shop/payment-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4006
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: NODE_ENV
+            - name: PORT
+              value: "4006"
+            - name: DATABASE_URL
+              value: postgresql://payment_user:payment_password@payment-db:5432/payment_db
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: greennest-dev-secrets
+                  key: JWT_SECRET
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: greennest-dev-secrets
+                  key: INTERNAL_SERVICE_TOKEN
+            - name: ORDER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: ORDER_SERVICE_URL
+            - name: VNPAY_TMN_CODE
+              valueFrom:
+                secretKeyRef:
+                  name: greennest-dev-secrets
+                  key: VNPAY_TMN_CODE
+            - name: VNPAY_HASH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: greennest-dev-secrets
+                  key: VNPAY_HASH_SECRET
+            - name: VNPAY_HASH_ALGORITHM
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VNPAY_HASH_ALGORITHM
+            - name: VNPAY_PAYMENT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VNPAY_PAYMENT_URL
+            - name: VNPAY_RETURN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VNPAY_RETURN_URL
+            - name: VNPAY_LOCALE
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VNPAY_LOCALE
+            - name: VNPAY_ORDER_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VNPAY_ORDER_TYPE
+            - name: VIETQR_BANK_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VIETQR_BANK_ID
+            - name: VIETQR_ACCOUNT_NO
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VIETQR_ACCOUNT_NO
+            - name: VIETQR_ACCOUNT_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VIETQR_ACCOUNT_NAME
+            - name: VIETQR_TEMPLATE
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VIETQR_TEMPLATE
+            - name: VIETQR_TRANSFER_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: greennest-app-config
+                  key: VIETQR_TRANSFER_PREFIX
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4006
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4006
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  labels:
+    app.kubernetes.io/name: payment-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: payment-service
+  ports:
+    - name: http
+      port: 4006
+      targetPort: 4006

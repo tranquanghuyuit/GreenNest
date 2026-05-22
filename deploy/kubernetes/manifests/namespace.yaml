@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: greennest
+  labels:
+    app.kubernetes.io/name: greennest
+    app.kubernetes.io/part-of: greennest-shop

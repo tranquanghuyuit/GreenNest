@@ -1745,10 +1745,121 @@ docker compose -f deploy/docker-compose/docker-compose.yml -f deploy/docker-comp
 
 Lý do: bắt lỗi YAML/config monitoring sớm trên GitHub Actions trước khi đem deploy.
 
+## 16. Workflow Kubernetes Dev Và Argo CD
+
+Chức năng:
+
+- Chạy GreenNest trên Kubernetes namespace `greennest`.
+- Dùng Kustomize để gom toàn bộ manifest.
+- Dùng Argo CD để sync manifest từ GitHub vào cluster.
+
+Luồng Kubernetes:
+
+```text
+Browser
+  -> Ingress greennest.local
+  -> frontend Service
+  -> api-gateway Service
+  -> backend service
+  -> PostgreSQL StatefulSet riêng của service
+```
+
+Luồng GitOps với Argo CD:
+
+```text
+Developer push code/manifest lên GitHub
+  -> Argo CD phát hiện thay đổi
+  -> Argo CD sync path deploy/kubernetes/manifests
+  -> Kubernetes cập nhật Deployment/Service/ConfigMap/Secret
+```
+
+**B1. `deploy/kubernetes/manifests/kustomization.yaml`**
+
+File này là entrypoint Kubernetes dev.
+
+Khi chạy:
+
+```text
+kubectl apply -k deploy/kubernetes/manifests
+```
+
+Kustomize sẽ gom namespace, config, secret dev, database, service, frontend và ingress thành một bộ manifest hoàn chỉnh.
+
+**B2. `deploy/kubernetes/manifests/postgres.yaml`**
+
+File này tạo PostgreSQL bằng StatefulSet cho từng service:
+
+```text
+auth-db
+user-db
+product-db
+cart-db
+order-db
+payment-db
+```
+
+Mỗi DB mount SQL init từ `db-init/` để tự tạo schema/seed data khi pod chạy lần đầu.
+
+**B3. `deploy/kubernetes/manifests/*-service.yaml`**
+
+Mỗi backend service có Deployment và Service riêng.
+
+Ví dụ:
+
+```text
+product-service Deployment -> product-service Service -> product-db Service
+```
+
+Lý do dùng Service: pod có thể bị recreate, IP pod thay đổi, nhưng tên service như `product-service` vẫn ổn định.
+
+**B4. `deploy/kubernetes/manifests/frontend.yaml`**
+
+Frontend chạy bằng Nginx container.
+
+Trong Kubernetes có Nginx config riêng để `/api` proxy sang:
+
+```text
+http://api-gateway:4000
+```
+
+Lý do: Nginx config trong Docker Compose dùng DNS Docker, không dùng nguyên xi cho Kubernetes được.
+
+**B5. `deploy/kubernetes/manifests/ingress.yaml`**
+
+Ingress route:
+
+```text
+greennest.local/     -> frontend
+greennest.local/api  -> api-gateway
+```
+
+Lý do: browser chỉ cần gọi một domain, còn Kubernetes lo route vào service đúng.
+
+**B6. `deploy/kubernetes/argocd/application-dev.yaml`**
+
+Argo CD Application trỏ tới repo:
+
+```text
+https://github.com/tranquanghuyuit/GreenNest.git
+```
+
+và path:
+
+```text
+deploy/kubernetes/manifests
+```
+
+Khi manifest trên GitHub thay đổi, Argo CD có thể tự sync vào cluster.
+
+Ghi chú:
+
+- Hiện image đang là `devsecops-shop/*:dev`, phù hợp local Kubernetes.
+- Khi làm CD thật, cần push image lên GHCR rồi đổi image sang `ghcr.io/...`.
+- PostgreSQL trong manifest là bản dev/demo, production nên dùng managed DB hoặc PostgreSQL operator.
+
 ## Workflow Sẽ Thêm Sau
 
-16. Notification Service: nhận event và ghi log/gửi thông báo.
-17. Push Docker image lên GHCR.
-18. Kubernetes manifests và Helm chart.
-19. CD deploy Kubernetes.
+17. Notification Service: nhận event và ghi log/gửi thông báo.
+18. Push Docker image lên GHCR.
+19. CD deploy Kubernetes bằng image registry thật.
 20. Logging runtime: Loki/Promtail hoặc ELK.

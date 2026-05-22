@@ -27,6 +27,7 @@ my_devops_project/
       docker-compose.monitoring.yml
     kubernetes/
       manifests/
+      argocd/
       manifests-policy/
         neuvector/
       manifests-monitoring/
@@ -730,12 +731,40 @@ Có thể chia theo style giống `microservices-demo`:
 ```text
 deploy/kubernetes/
   manifests/
+    kustomization.yaml
+    namespace.yaml
+    app-config.yaml
+    dev-secrets.yaml
+    postgres.yaml
+    frontend.yaml
+    api-gateway.yaml
+    auth-service.yaml
+    user-service.yaml
+    product-service.yaml
+    cart-service.yaml
+    order-service.yaml
+    payment-service.yaml
+    ingress.yaml
+    db-init/
+  argocd/
+    application-dev.yaml
   manifests-policy/
+    neuvector/
   manifests-monitoring/
   manifests-logging/
-  complete-demo.yaml
   README.md
 ```
+
+Giải thích nhanh:
+
+- `manifests/kustomization.yaml`: entrypoint để chạy `kubectl apply -k deploy/kubernetes/manifests`.
+- `manifests/*-service.yaml`: Deployment và Service cho từng backend service.
+- `manifests/frontend.yaml`: Deployment/Service frontend và Nginx config riêng cho Kubernetes.
+- `manifests/postgres.yaml`: StatefulSet/Service PostgreSQL dev cho từng service.
+- `manifests/db-init/`: bản copy SQL init để Postgres trong Kubernetes tự tạo schema/seed data.
+- `manifests/ingress.yaml`: route `greennest.local` vào frontend và API Gateway.
+- `argocd/application-dev.yaml`: Argo CD Application để sync manifest từ GitHub vào namespace `greennest`.
+- `manifests-policy/neuvector/`: cấu hình NeuVector cho Kubernetes runtime security.
 
 ### deploy/helm-chart/
 

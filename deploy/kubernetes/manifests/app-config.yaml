@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: greennest-app-config
+data:
+  NODE_ENV: production
+  ACCESS_TOKEN_EXPIRES_SECONDS: "900"
+  REFRESH_TOKEN_EXPIRES_DAYS: "7"
+  AUTH_SERVICE_URL: http://auth-service:4002
+  PRODUCT_SERVICE_URL: http://product-service:4001
+  USER_SERVICE_URL: http://user-service:4003
+  CART_SERVICE_URL: http://cart-service:4004
+  ORDER_SERVICE_URL: http://order-service:4005
+  PAYMENT_SERVICE_URL: http://payment-service:4006
+  GOOGLE_REDIRECT_URI: http://greennest.local/auth/google/callback
+  VNPAY_PAYMENT_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  VNPAY_HASH_ALGORITHM: hmac-sha512
+  VNPAY_RETURN_URL: http://greennest.local/payment/vnpay-return
+  VNPAY_LOCALE: vn
+  VNPAY_ORDER_TYPE: other
+  VIETQR_BANK_ID: vietcombank
+  VIETQR_ACCOUNT_NO: "0000000000"
+  VIETQR_ACCOUNT_NAME: GREENNEST MARKET
+  VIETQR_TEMPLATE: compact2
+  VIETQR_TRANSFER_PREFIX: GN
