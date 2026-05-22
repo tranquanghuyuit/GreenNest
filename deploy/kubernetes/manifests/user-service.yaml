@@ -25,8 +25,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: user-service
-          image: devsecops-shop/user-service:dev
-          imagePullPolicy: IfNotPresent
+          image: docker.io/huydeptraivl2005/greennest-user-service:caec1d6cb303
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
