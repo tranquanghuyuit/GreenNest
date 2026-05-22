@@ -52,7 +52,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: docker.io/huydeptraivl2005/greennest-frontend:0104a0d48830
+          image: docker.io/huydeptraivl2005/greennest-frontend:536bb683458e
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
