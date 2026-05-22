@@ -4,8 +4,8 @@ metadata:
   name: greennest-app-config
 data:
   NODE_ENV: production
-  ACCESS_TOKEN_EXPIRES_SECONDS: "900"
-  REFRESH_TOKEN_EXPIRES_DAYS: "7"
+  AUTH_ACCESS_TTL_SECONDS: "900"
+  AUTH_REFRESH_TTL_DAYS: "7"
   AUTH_SERVICE_URL: http://auth-service:4002
   PRODUCT_SERVICE_URL: http://product-service:4001
   USER_SERVICE_URL: http://user-service:4003

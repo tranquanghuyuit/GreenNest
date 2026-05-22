@@ -16,10 +16,23 @@ spec:
         app.kubernetes.io/name: auth-service
         app.kubernetes.io/component: backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: auth-service
           image: devsecops-shop/auth-service:dev
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 4002
           env:
@@ -41,12 +54,12 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: greennest-app-config
-                  key: ACCESS_TOKEN_EXPIRES_SECONDS
+                  key: AUTH_ACCESS_TTL_SECONDS
             - name: REFRESH_TOKEN_EXPIRES_DAYS
               valueFrom:
                 configMapKeyRef:
                   name: greennest-app-config
-                  key: REFRESH_TOKEN_EXPIRES_DAYS
+                  key: AUTH_REFRESH_TTL_DAYS
             - name: GOOGLE_CLIENT_ID
               valueFrom:
                 secretKeyRef:
