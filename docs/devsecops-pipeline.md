@@ -130,6 +130,27 @@ Công cụ đề xuất:
 - Snyk optional.
 - Trivy filesystem scan.
 
+### 4.8 Kubernetes Manifest Scan
+
+Quét cấu hình Kubernetes trước khi deploy để phát hiện manifest thiếu chuẩn bảo mật.
+
+Công cụ:
+
+- Kubescape.
+
+Framework dùng trong CI:
+
+- NSA.
+- MITRE.
+
+Rủi ro cần phát hiện:
+
+- Container chạy quyền cao.
+- Thiếu security context.
+- Thiếu resource limit.
+- Service account/permission quá rộng.
+- Thiếu network policy hoặc cấu hình workload chưa an toàn.
+
 ## 5. Giai Đoạn Build
 
 ### 5.1 Build Docker Image
@@ -240,11 +261,31 @@ Công cụ:
 
 - Prometheus.
 - Grafana.
+- metrics-server cho Kubernetes HPA.
 
 Mỗi service cần expose:
 
 - `/health`
 - `/metrics`
+
+### Autoscaling
+
+Kubernetes dùng Horizontal Pod Autoscaler để tự tăng/giảm số pod theo tải.
+
+Trong GreenNest, HPA được cấu hình cho:
+
+- `api-gateway`
+- `frontend`
+- `product-service`
+
+Metric demo:
+
+- CPU utilization target 70%.
+
+Giới hạn local:
+
+- Docker Desktop Kubernetes demo được HPA tăng/giảm pod.
+- Cluster Autoscaler cần cloud thật để tự thêm node, nên chưa áp dụng trong phạm vi local.
 
 ### Logs
 
@@ -272,7 +313,7 @@ Log cần có:
 | Container scan | Trivy |
 | SBOM | Syft hoặc Trivy |
 | DAST | OWASP ZAP |
-| Kubernetes policy | Kubesec, kube-score, OPA Gatekeeper optional |
+| Kubernetes policy | Kubescape, Kubesec, kube-score, OPA Gatekeeper optional |
 | Runtime monitoring | Prometheus, Grafana |
 | Log aggregation | Loki/Promtail hoặc ELK |
 

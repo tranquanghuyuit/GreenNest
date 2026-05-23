@@ -21,6 +21,7 @@ deploy/kubernetes/
     order-service.yaml
     payment-service.yaml
     ingress.yaml
+    hpa.yaml
     db-init/
   argocd/
     application-dev.yaml
@@ -224,6 +225,32 @@ Jaeger:     http://localhost:16686
 ```
 
 Prometheus hiện dùng Blackbox Exporter để probe frontend, API Gateway và `/health` của từng service.
+
+## Horizontal Pod Autoscaler
+
+`manifests/hpa.yaml` cấu hình HPA cho:
+
+```text
+api-gateway:     min 2, max 5, target CPU 70%
+frontend:        min 2, max 4, target CPU 70%
+product-service: min 1, max 4, target CPU 70%
+```
+
+HPA cần metrics-server để đọc CPU/RAM:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-metrics-server.ps1
+```
+
+Kiểm tra:
+
+```powershell
+kubectl top nodes
+kubectl get hpa -n greennest
+kubectl describe hpa api-gateway -n greennest
+```
+
+Lưu ý: Docker Desktop chỉ có một node local, nên demo được HPA tăng/giảm pod, nhưng không demo được Cluster Autoscaler tăng node.
 
 Cài NeuVector runtime security bằng Helm:
 

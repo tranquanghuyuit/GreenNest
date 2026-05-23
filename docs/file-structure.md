@@ -769,6 +769,7 @@ Giải thích nhanh:
 - `manifests/postgres.yaml`: StatefulSet/Service PostgreSQL dev cho từng service.
 - `manifests/db-init/`: bản copy SQL init để Postgres trong Kubernetes tự tạo schema/seed data.
 - `manifests/ingress.yaml`: route `greennest.local` vào frontend và API Gateway.
+- `manifests/hpa.yaml`: Horizontal Pod Autoscaler cho `api-gateway`, `frontend` và `product-service`.
 - `argocd/application-dev.yaml`: Argo CD Application để sync manifest từ GitHub vào namespace `greennest`.
 - `manifests-policy/neuvector/`: cấu hình NeuVector cho Kubernetes runtime security.
 
@@ -909,10 +910,14 @@ scripts/
   install-argocd.sh
   install-k8s-monitoring.ps1
   install-k8s-monitoring.sh
+  install-metrics-server.ps1
+  install-metrics-server.sh
   install-neuvector.ps1
   install-neuvector.sh
   install-nginx-ingress.ps1
   install-nginx-ingress.sh
+  run-kubescape.ps1
+  run-kubescape.sh
   ci/
     smoke-test.sh
 ```
@@ -921,10 +926,14 @@ scripts/
 - `scripts/install-argocd.sh`: cài Argo CD, chờ pod sẵn sàng và apply GreenNest Application bằng Bash.
 - `scripts/install-k8s-monitoring.ps1`: cài Prometheus, Grafana, Alertmanager, Blackbox Exporter và Jaeger vào namespace `greennest`.
 - `scripts/install-k8s-monitoring.sh`: bản Bash của script cài Kubernetes monitoring.
+- `scripts/install-metrics-server.ps1`: cài metrics-server để HPA đọc CPU/RAM và tự scale pod trên Kubernetes local.
+- `scripts/install-metrics-server.sh`: bản Bash của script cài metrics-server.
 - `scripts/install-neuvector.ps1`: cài NeuVector bằng Helm vào namespace `greennest`.
 - `scripts/install-neuvector.sh`: bản Bash của script cài NeuVector.
 - `scripts/install-nginx-ingress.ps1`: cài NGINX Ingress Controller bằng PowerShell.
 - `scripts/install-nginx-ingress.sh`: cài NGINX Ingress Controller bằng Bash.
+- `scripts/run-kubescape.ps1`: chạy Kubescape scan NSA/MITRE cho manifest Kubernetes và có thể scan cluster local namespace `greennest`.
+- `scripts/run-kubescape.sh`: bản Bash của script chạy Kubescape.
 - `scripts/ci/smoke-test.sh`: script CI chạy sau khi Docker Compose stack đã lên, dùng `curl` để kiểm tra API Gateway, Product API, frontend Nginx và proxy `/api` của frontend.
 
 ## 14. .github/workflows/

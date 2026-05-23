@@ -77,6 +77,45 @@ jobs:
           exit-code: "1"
           format: table
 
+  kubescape-k8s-scan:
+    name: Kubescape Kubernetes scan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Scan application manifests with Kubescape
+        uses: kubescape/github-action@main
+        continue-on-error: true
+        with:
+          files: deploy/kubernetes/manifests
+          frameworks: NSA,MITRE
+          format: sarif
+          outputFile: kubescape-app-results
+          verbose: true
+
+      - name: Scan monitoring manifests with Kubescape
+        uses: kubescape/github-action@main
+        continue-on-error: true
+        with:
+          files: deploy/kubernetes/manifests-monitoring
+          frameworks: NSA,MITRE
+          format: sarif
+          outputFile: kubescape-monitoring-results
+          verbose: true
+
+      - name: Upload Kubescape SARIF reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubescape-sarif-reports
+          path: |
+            kubescape-app-results.sarif
+            kubescape-monitoring-results.sarif
+          if-no-files-found: warn
+
   owasp-dependency-check:
     name: OWASP Dependency-Check
     runs-on: ubuntu-latest
@@ -250,6 +289,7 @@ jobs:
       - codeql-analysis
       - semgrep-sast
       - trivy-repo-scan
+      - kubescape-k8s-scan
       - owasp-dependency-check
       - node-build
     strategy:

@@ -20,6 +20,7 @@ build/
 target/
 coverage/
 *.tsbuildinfo
+kubescape-reports/
 
 # OS / IDE
 .DS_Store
