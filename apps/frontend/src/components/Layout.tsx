@@ -65,7 +65,7 @@ export function Layout({ children, route, user, cartItemCount, onNavigate, onLog
             </button>
             <button type="button">Hỗ trợ</button>
           </div>
-          <p>Giao hàng miễn phí cho đơn từ 300.000đ</p>
+          <p>Freeship cho đơn từ 300.000đ</p>
           <div className="top-links">
             <button type="button">Tiếng Việt</button>
             <button type="button">VND</button>

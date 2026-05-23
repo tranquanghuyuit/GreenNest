@@ -9,3 +9,4 @@ resources:
   - blackbox-exporter.yaml
   - grafana.yaml
   - jaeger.yaml
+  - ingress.yaml
